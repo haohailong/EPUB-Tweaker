@@ -60,6 +60,8 @@ h1 { font-family: 'Newsreader', Georgia, serif; font-size: clamp(3.2rem, 9vw, 6.
 .drop-zone { min-height: 280px; display: grid; place-items: center; align-content: center; border: 1.5px dashed #9ca49e; border-radius: 22px; background: color-mix(in srgb, var(--card) 60%, transparent); padding: 38px; transition: border-color .2s, transform .2s, background .2s; }
 .drop-zone.is-dragging { border-color: var(--accent); background: #fff8ef; transform: scale(1.01); }
 .drop-zone h2 { font-family: 'Newsreader', Georgia, serif; font-size: 2rem; margin: 17px 0 4px; }
+.drop-zone-heading .eyebrow { color: var(--accent); font-size: .72rem; margin: 17px 0 0; }
+.drop-zone-heading h2 { margin-top: 5px; }
 .drop-zone p { color: var(--muted); font-size: .88rem; margin-bottom: 20px; }
 .drop-illustration { position: relative; width: 77px; height: 77px; border: 2px solid var(--ink); border-radius: 5px 16px 16px 5px; transform: rotate(-4deg); background: var(--card); box-shadow: 8px 8px 0 var(--green-soft); display: grid; place-items: center; font-family: 'Newsreader', serif; font-size: 2.5rem; }
 .drop-illustration::before { content: ''; position: absolute; left: 9px; top: 0; bottom: 0; border-left: 1px solid var(--line); }
@@ -78,6 +80,8 @@ h1 { font-family: 'Newsreader', Georgia, serif; font-size: clamp(3.2rem, 9vw, 6.
 .hero.has-files > .eyebrow, .hero.has-files > h1, .hero.has-files > .tagline { display: none; }
 .hero.has-files .drop-zone { min-height: 0; grid-template-columns: 1fr auto; align-items: center; gap: 18px; padding: 18px 22px; }
 .hero.has-files .drop-illustration, .hero.has-files .drop-zone > p { display: none; }
+.hero.has-files .drop-zone-heading { text-align: left; }
+.hero.has-files .drop-zone-heading .eyebrow { margin: 0 0 3px; }
 .hero.has-files .drop-zone h2 { margin: 0; text-align: left; font-size: 1.35rem; }
 .hero.has-files .privacy-note { margin-top: 12px; }
 

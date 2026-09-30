@@ -239,7 +239,7 @@ export default function App({ onRegisterUpdate, updateApp }: AppProps) {
           <h1>EPUB Tweaker</h1>
           <p className="tagline">{t('tagline')}</p>
           <section className="home-options" aria-labelledby="processing-options-title">
-            <div className="home-options-heading"><div><p className="eyebrow">01</p><h2 id="processing-options-title">{t('processingOptions')}</h2></div><small>{t('optionsApplyAll')}</small></div>
+            <div className="home-options-heading"><div><p className="eyebrow">{t('stepOne')}</p><h2 id="processing-options-title">{t('processingOptions')}</h2></div><small>{t('optionsApplyAll')}</small></div>
             <div className="home-options-grid">
               <fieldset><legend>{t('layoutOptions')}</legend><div className="segmented-control">
                 <label><input type="radio" name="layout-transform" checked={!globalOptions.vertical && !globalOptions.horizontal} onChange={() => updateGlobalOptions({ vertical: false, horizontal: false })} /><span>{t('preserveLayout')}</span></label>
@@ -258,7 +258,7 @@ export default function App({ onRegisterUpdate, updateApp }: AppProps) {
             onDrop={(event) => { event.preventDefault(); setDragging(false); addFiles(event.dataTransfer.files); }}
           >
             <div className="drop-illustration" aria-hidden="true"><span>e</span><i>+</i></div>
-            <h2>{t('drop')}</h2><p>{t('dropHint')}</p>
+            <div className="drop-zone-heading"><p className="eyebrow">{t('stepTwo')}</p><h2>{t('drop')}</h2></div><p>{t('dropHint')}</p>
             <input id="epub-file-input" className="sr-only" aria-label={t('choose')} type="file" accept=".epub,application/epub+zip" multiple onChange={(event) => { addFiles(event.target.files ?? []); event.currentTarget.value = ''; }} />
             <label className="primary choose-label" htmlFor="epub-file-input">{t('choose')}</label>
           </div>
@@ -269,7 +269,7 @@ export default function App({ onRegisterUpdate, updateApp }: AppProps) {
         {updateReady && <div className="update-banner" role="status"><span>{t('updateReady')}</span><div><button onClick={updateApp}>{t('update')}</button><button onClick={() => setUpdateReady(false)}>{t('dismiss')}</button></div></div>}
 
         <section ref={filesSection} className="files-section" aria-labelledby="selected-heading">
-          <div className="section-heading"><div><p className="eyebrow">{items.length ? String(items.length).padStart(2, '0') : '00'}</p><h2 id="selected-heading">{t('selectedFiles')}</h2></div>
+          <div className="section-heading"><div><p className="eyebrow">{t('stepThree')}</p><h2 id="selected-heading">{t('selectedFiles')} ({items.length})</h2></div>
             {items.length > 0 && <div className="batch-actions"><button className="secondary" disabled={!ready} onClick={() => void processAll()}>{t('processAll')}</button><button className="primary" disabled={!finished} onClick={downloadAll}>{t('downloadAll')}</button></div>}
           </div>
           {!items.length && <div className="empty-state"><p>{t('empty')}</p></div>}
