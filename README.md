@@ -1,53 +1,173 @@
 # EPUB Tweaker
 
 <p align="center">
-  <img src="public/icon.svg" width="96" height="96" alt="EPUB Tweaker icon">
+  <img src="public/icon.svg" width="104" height="104" alt="EPUB Tweaker icon">
 </p>
 
-[Source code](https://github.com/haohailong/EPUB-Tweaker) · [Report an issue](https://github.com/haohailong/EPUB-Tweaker/issues)
+<p align="center">
+  <strong>Repair and fine-tune EPUB files for better e-reader compatibility.</strong><br>
+  <sub>Also fixes known EPUB problems that can cause Send to Kindle to reject a book or preserve it as a fixed-layout document.</sub>
+</p>
 
-EPUB Tweaker is a privacy-first Progressive Web App that repairs known EPUB compatibility problems and optionally fine-tunes presentation while preserving the input EPUB major version. Its first compatibility profile targets Send to Kindle ingestion, but the parser, unified book model, rule engine, and validator are separated so other profiles can be added later.
+<p align="center">
+  English · <a href="README.zh-TW.md">繁體中文</a> · <a href="README.zh-CN.md">简体中文</a>
+</p>
 
-**Files are processed on this device. Nothing is uploaded.** There is no backend, account, analytics endpoint, telemetry, or remote book-asset fetch. After the app shell has been cached, processing works offline.
+<p align="center">
+  <a href="https://epub-tweaker-neo.vercel.app/"><strong>Open the web app</strong></a>
+  · <a href="https://github.com/haohailong/EPUB-Tweaker/issues">Report an issue</a>
+</p>
 
-EPUB Tweaker is not affiliated with or endorsed by Amazon.
+EPUB Tweaker is a privacy-first Progressive Web App for inspecting, repairing, and adjusting EPUB 2 and EPUB 3 books. It runs entirely in the browser: books are not uploaded, no account is required, and the app can work offline after it has been cached or installed.
+
+> EPUB Tweaker does not remove or bypass DRM. It is not affiliated with or endorsed by Amazon.
+
+## Why use it?
+
+EPUB files that open normally in one reader can still fail during Send to Kindle conversion, lose adjustable text, use the wrong page direction, or contain obsolete metadata left by older authoring tools. EPUB Tweaker applies conservative, explainable repairs and validates the rebuilt file before making it available for download.
+
+It is especially useful for:
+
+- repairing known Send to Kindle compatibility problems, including several causes related to error E016;
+- converting horizontal text to vertical text, or vertical text to horizontal text;
+- setting automatic, right-to-left, or left-to-right page progression;
+- preparing vertical Traditional Chinese books for Kindle with either horizontal conversion or the optional Japanese Mode workaround;
+- cleaning obsolete `page-map` data, stale Adobe encryption residue, incompatible SVG titles, and selected CSS problems;
+- checking an EPUB and receiving a readable technical report without uploading the book.
 
 ## How to use
 
-1. Open EPUB Tweaker in a current browser.
-2. Choose the layout, Japanese Mode, and page-progression options you want. The default keeps the original layout and progression.
+1. Open [EPUB Tweaker](https://epub-tweaker-neo.vercel.app/) in a current browser.
+2. Choose the layout, Japanese Mode, and page-progression options. The defaults preserve the book’s existing layout and valid progression.
 3. Drag one or more `.epub` files onto the page, or select **Choose Files**.
-4. Review the detected title, EPUB version, language, layout, and progression.
-5. Optionally select local high-resolution replacement images or customize the output name on a book card.
-6. Select **Process EPUB** for one book or **Process All** for a batch.
-7. Review the repair report, then download the new `-tweaked.epub` file. The original file is never overwritten.
+4. Review each book’s detected title, EPUB version, language, layout, and page direction, including the expected state after processing.
+5. If needed, choose local replacement images or change the output filename on the book card.
+6. Select **Process EPUB**, or use **Process All** for a batch.
+7. Review the repair report and download the resulting `-tweaked.epub` file. The source file is never overwritten.
 
-All processing stays inside the browser. Do not close or reload the page while a large book is being processed.
+Keep the page open while a large book is being processed. All work happens on the device.
 
-## Features
+## Main features
 
-- EPUB 2.x and EPUB 3.x inspection with automatic version detection
-- Version-preserving output (EPUB 2 remains EPUB 2; EPUB 3 remains EPUB 3)
-- Browser Web Worker processing so large archives do not block the interface
-- ZIP path traversal, entry-size, compressed-size, and expanded-size safeguards
-- Correct EPUB ZIP output: `mimetype` is first, exact, and stored uncompressed
-- UTF-8 normalization through structured XML parsing and serialization
-- EPUB 2 NCX and EPUB 3 Navigation Document body-anchor repair
-- Send to Kindle E016 mitigation for optional language attributes, image-only fixed-canvas SVG cover pages, and fixed-page spread hints inside otherwise reflowable EPUBs
-- Obsolete `page-map`, stale Adobe encryption residue, incompatible SVG-title, and specific pseudo-element `box-shadow` cleanup
-- DRM detection without circumvention; standard IDPF/Adobe font obfuscation is preserved
-- Compatibility conversion for structurally problematic Chinese ruby; Japanese ruby is preserved
-- Explicit horizontal-to-`vertical-rl` and vertical-to-horizontal transformations
-- Standards-compatible `writing-mode` declarations added alongside legacy EPUB/WebKit-prefixed CSS
-- Auto, RTL, and LTR page progression controls; vertical Auto explicitly produces RTL and horizontal conversion defaults to LTR
-- Independent Japanese Mode
-- Local image replacement matching using dimensions, aspect ratio, and perceptual hashing when browser canvas APIs are available
-- Batch processing and ZIP download for multiple output EPUBs
-- English, Traditional Chinese, and Simplified Chinese UI
-- System light/dark mode, keyboard-accessible controls, reduced-motion support
-- Installable PWA with an offline application shell and update prompt
-- Human-readable and copyable technical reports
-- Mandatory post-processing validation before any output is offered as successful
+- EPUB 2.x and EPUB 3.x detection, inspection, and version-preserving output
+- Web Worker processing to keep the interface responsive
+- Guarded ZIP reading with path-traversal and archive-size limits
+- Standards-compliant EPUB ZIP output with an exact, uncompressed first `mimetype` entry
+- Structured XML/XHTML/SVG and CSS processing instead of regex-only rewriting
+- EPUB 2 NCX and EPUB 3 Navigation Document anchor repair
+- Send to Kindle E016 mitigation for known language, SVG cover, fixed-canvas, and spread-hint problems
+- Horizontal → vertical and vertical → horizontal layout conversion
+- Auto, RTL, and LTR page progression; horizontal conversion defaults to LTR
+- Independent Japanese Mode for Kindle compatibility experiments
+- Chinese ruby compatibility conversion while preserving Japanese ruby
+- Local high-resolution image replacement with dimension, aspect-ratio, and perceptual matching
+- DRM detection without circumvention; supported font obfuscation is preserved
+- Batch processing and ZIP download
+- English, Traditional Chinese, and Simplified Chinese interface
+- Light/dark system appearance, keyboard access, and reduced-motion support
+- Installable PWA with offline app shell and update notification
+- Mandatory post-processing validation and a copyable repair report
+
+## Processing options
+
+### Keep original
+
+Preserves the current writing mode and uses the existing valid page progression. Compatibility repairs and validation still run.
+
+### Horizontal → vertical
+
+Adds a dedicated `vertical-rl` stylesheet to reflowable content without turning the publication into fixed layout. With page progression set to **Auto**, EPUB 3 receives RTL progression and EPUB 2 receives compatible writing-mode metadata.
+
+### Vertical → horizontal
+
+Adds a late `horizontal-tb` override while retaining the document structure, links, images, ruby, and navigation. With **Auto**, the output explicitly uses LTR page progression. Fixed-layout publications are not transformed.
+
+### Japanese Mode
+
+Changes the publication’s primary language to `ja` and maintains compatible writing-mode metadata. It does not enable vertical layout by itself. This can help Kindle honor a vertical RTL book because Amazon’s Traditional Chinese conversion path supports only horizontal LTR, but it may also change the fonts and typography selected by the device.
+
+For the most conservative Send to Kindle result with Traditional Chinese, use **Vertical → horizontal**. Japanese Mode is an optional compatibility workaround when preserving vertical layout matters more.
+
+### Page progression
+
+- **Auto:** vertical right-to-left content becomes RTL; otherwise an existing valid direction is preserved.
+- **Right to left / Left to right:** explicitly overrides Auto.
+
+Language alone is never treated as proof of page direction.
+
+## Output and privacy
+
+The default output name is `Original Name-tweaked.epub`. Existing `-fixed` and `-tweaked` suffixes are normalized so repeated processing does not stack suffixes.
+
+A browser PWA cannot normally write beside the source file without explicit file-system permission, so downloads go to the browser’s configured download folder or save prompt. The original EPUB is never overwritten.
+
+There is no backend, login, analytics endpoint, telemetry, or remote book-asset fetch. EPUB scripts are never executed, book markup is never inserted into the application DOM, and external references inside a book are not followed automatically.
+
+## DRM policy
+
+EPUB Tweaker does not remove or bypass DRM. Processing stops with `DRM_PROTECTED` when encrypted content is detected. Standard IDPF/Adobe font obfuscation is preserved. An encryption descriptor is removed only when all referenced resources are readable and the listed Adobe method is demonstrably stale residue.
+
+## Validation and limitations
+
+Every generated book is reopened and checked for ZIP structure, container and package validity, manifest/spine integrity, navigation targets, parseable XML/XHTML/SVG/CSS, internal links and fragments, and consistent UTF-8 serialization.
+
+This validator is not Amazon’s private conversion engine and does not replace Kindle Previewer or EPUBCheck. EPUB Tweaker repairs known problems and validates its own Kindle-safe profile, but no third-party app can guarantee that every file will be accepted by Send to Kindle.
+
+Other current limits:
+
+- ambiguous missing references and severely malformed XML are reported rather than guessed;
+- fixed-layout publications are not converted into reflowable books;
+- similar images may require manual matching when perceptual canvas APIs are unavailable;
+- books are limited to 200 MB compressed, 100 MB per entry, and 600 MB expanded to protect mobile browsers;
+- obfuscated fonts are preserved and are not modified.
+
+## Supported browsers
+
+- Current Safari on iPhone, iPad, and macOS, including installed PWA mode
+- Current Chromium-based browsers
+- Current Firefox where Worker, Blob, and sufficient ZIP-memory support are available
+
+Desktop drag-and-drop is supported. The File System Access API is optional and is not required on Safari or iOS.
+
+## Local development
+
+Node.js 20 or newer is required.
+
+```bash
+git clone https://github.com/haohailong/EPUB-Tweaker.git
+cd EPUB-Tweaker
+npm install
+npm run dev
+```
+
+Vite prints the local address, normally `http://localhost:5173`. Open it in a browser.
+
+Run the automated test suite:
+
+```bash
+npm test
+```
+
+Create and preview a production build:
+
+```bash
+npm run build
+npm run preview
+```
+
+The production output is written to `dist/`.
+
+## Deploy to Vercel
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fhaohailong%2FEPUB-Tweaker)
+
+The repository includes `vercel.json`; no environment variables or backend services are required.
+
+1. Import `haohailong/EPUB-Tweaker` as a new Vercel project.
+2. Keep the detected Vite build settings.
+3. Deploy. Future pushes to `main` will create production deployments, and pull requests can receive previews.
+
+For another static HTTPS host, publish `dist/`. The default service-worker scope assumes the app is hosted at the domain root.
 
 ## Architecture
 
@@ -55,135 +175,22 @@ All processing stays inside the browser. Do not close or reload the page while a
 React UI
   └─ Web Worker
       ├─ guarded ZIP reader
-      ├─ container + package parser
+      ├─ container and package parser
       ├─ EPUB 2 / EPUB 3 boundaries
       ├─ unified BookModel
-      ├─ common + version-aware repairs
+      ├─ common and version-aware repair rules
       ├─ deterministic ZIP serializer
       └─ post-processing validator
 ```
 
-XML, XHTML, OPF, NCX, navigation documents, and SVG are parsed as structured documents with `@xmldom/xmldom`. CSS is parsed with `css-tree`; repair rules do not use regex-only CSS editing. `fflate` provides ZIP read/write support.
-
-The worker never evaluates scripts from an EPUB, the UI never inserts book markup into the application DOM, and external references in books are never followed automatically.
-
-## Processing options
-
-Layout, Japanese Mode, and page progression controls are always visible on the home screen and apply to every unprocessed book. Per-book image replacement and output filename controls appear directly on each selected-file card.
-
-The `EN / 繁 / 简` header control follows the browser's preferred language on first use. Selecting a button stores that explicit choice locally. Clearing local App data returns language selection to automatic system detection.
-
-### Vertical layout
-
-“Convert horizontal text to vertical” adds a small dedicated stylesheet and links it from reflowable content documents. It sets `writing-mode: vertical-rl` without changing the publication to fixed layout. When progression is Auto, EPUB 3 receives standard `page-progression-direction="rtl"`; EPUB 2 remains EPUB 2 and receives Kindle-compatible `primary-writing-mode` metadata. Existing vertical books are not needlessly restyled.
-
-### Horizontal layout
-
-“Vertical → horizontal” adds a late, explicit `horizontal-tb` override while preserving document structure, links, images, ruby, and navigation. With progression set to Auto, the result explicitly uses LTR page progression and Kindle-compatible `horizontal-lr` metadata. Fixed-layout publications are not transformed.
-
-### Japanese Mode
-
-Japanese Mode changes the primary publication language to `ja` and maintains compatible writing-mode metadata. It does not itself enable vertical layout. Japanese ruby is preserved. This mode can help Kindle honor vertical RTL books when Amazon's Traditional Chinese conversion path does not; changing the language metadata can also change the device's font and typography choices.
-
-### Page progression
-
-- **Auto:** vertical-right-to-left content becomes RTL; otherwise an existing valid direction is preserved and an absent direction remains absent.
-- **Right to left / Left to right:** explicitly overrides Auto.
-
-Language alone is never used as proof of progression direction.
-
-### Image replacement
-
-Select local replacement images after selecting an EPUB. Matching does not depend on filenames. High-confidence unique matches are selected automatically; uncertain matches remain unchecked for manual confirmation. Comparison and replacement happen locally. The app never downloads images from Google Play Books or any other reading service, and it never enlarges or recompresses supplied images.
-
-## Output files
-
-The default output name is `Original Name-tweaked.epub`. Existing `-fixed` and `-tweaked` suffixes are normalized so repeated processing does not produce stacked suffixes. The original file is never overwritten.
-
-Browsers do not expose the source file’s parent folder to a normal PWA, so an ordinary file input or drag-and-drop cannot silently write a sibling file into that folder. Downloads use the browser’s configured download location (or its save prompt). This keeps the File System Access API optional and maintains Safari/iOS compatibility.
-
-## DRM policy
-
-EPUB Tweaker does not remove or bypass DRM. If an encrypted content resource is detected, processing stops with `DRM_PROTECTED`. Standard font obfuscation is retained. An encryption file is removed only when every referenced resource is demonstrably readable and the listed Adobe method is stale residue.
-
-## Validation
-
-Before download, the generated EPUB is reopened and checked for:
-
-- first, exact, uncompressed `mimetype`
-- valid container and package documents
-- unique manifest IDs and existing manifest resources
-- valid spine references
-- resolvable EPUB 2 NCX and EPUB 3 navigation targets
-- parseable XML/XHTML/SVG and CSS
-- internal `href` and `src` targets and fragments
-- consistent UTF-8 serialized text resources
-
-The validator is intentionally not a reimplementation of Kindle Previewer. The app repairs known compatibility problems and produces an EPUB that satisfies EPUB Tweaker’s validated Kindle-safe profile; it cannot guarantee acceptance by Amazon’s conversion service.
-
-## Supported browsers
-
-- Current Safari on iPhone, iPad, and macOS
-- Installed iOS/iPadOS PWA mode
-- Current Chromium browsers
-- Current Firefox where the required Worker, Blob, and ZIP-memory capacity are available
-
-Standard file inputs are always available; the File System Access API is not required. Desktop drag-and-drop is supported. Perceptual image hashing uses `OffscreenCanvas` and `createImageBitmap` when present and falls back to dimension/aspect matching otherwise.
-
-## Development
-
-Requires Node.js 20 or newer.
-
-```bash
-npm install
-npm run dev
-```
-
-Run the automated unit and end-to-end synthetic EPUB corpus:
-
-```bash
-npm test
-```
-
-Type-check and create a production PWA build:
-
-```bash
-npm run build
-npm run preview
-```
-
-The build output is `dist/`. Deploy that directory to any static HTTPS host. The service worker scope assumes the app is hosted at the domain root; if deploying below a path, set Vite’s `base` and the manifest `start_url`/`scope` to that path.
-
-## Deploy to Vercel
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fhaohailong%2FEPUB-Tweaker)
-
-The repository includes `vercel.json` with the Vite framework preset, `npm run build`, the `dist` output directory, SPA fallback routing, and PWA cache headers. To connect it manually:
-
-1. Open the Vercel dashboard and select **New Project**.
-2. Import `haohailong/EPUB-Tweaker` from GitHub.
-3. Keep the detected Vite settings and select **Deploy**. No environment variables or backend services are required.
-
-Future pushes to `main` will trigger production deployments after the GitHub repository is connected. Pull requests receive preview deployments.
-
-## Test corpus
-
-Tests synthesize redistributable EPUB fixtures in memory; no commercial books are included. The corpus covers EPUB 2 and 3, NCX/nav body anchors, UTF-8 serialization, missing manifest/spine resources, progression and both layout transformations, Chinese/Japanese ruby behavior, page-map cleanup, stale versus real encryption, SVG, CSS pseudo-elements, prefixed writing modes, reflowable spine spread cleanup, system-language selection, image matching, ZIP ordering/compression, output validation, and second-pass idempotence.
-
-If Java is available in CI, EPUBCheck can be added as an extra development validation layer over generated EPUB 3 fixtures. It is not bundled into the browser app.
-
-## Current limitations
-
-- The app intentionally performs conservative repairs. Ambiguous missing references and malformed XML are reported rather than guessed.
-- Image matching confidence is strongest when perceptual canvas APIs are available. Similar illustrations with identical proportions may require manual confirmation.
-- Very large books are rejected at 200 MB compressed, 100 MB per entry, or 600 MB total expanded size to protect mobile browsers.
-- Font obfuscation is preserved; the current pipeline does not modify obfuscated fonts.
-- The validator checks internal consistency but does not run Amazon’s private conversion engine.
-- Amazon's current Traditional Chinese publishing guidance requires horizontal LTR content and says vertical/RTL Traditional Chinese is unsupported. EPUB Tweaker warns on this combination; Japanese Mode may work around device behavior, while horizontal conversion is the most conservative Send to Kindle option.
+The implementation uses `@xmldom/xmldom` for structured documents, `css-tree` for CSS, and `fflate` for ZIP input/output. Tests create redistributable EPUB fixtures in memory; no commercial books are included.
 
 ## Technical references
 
-Implementation decisions follow the current [W3C EPUB 3.3 specification](https://www.w3.org/TR/epub-33/) for OCF/package/navigation behavior and the current [Amazon Kindle Publishing Guidelines](https://kdp.amazon.com/en_US/help/topic/GU72M65VRFPH43L6), including Amazon’s [navigation guidance](https://kdp.amazon.com/en_US/help/topic/GY3AD8C6C6GAG42N) and [Traditional Chinese publishing limitations](https://kdp.amazon.com/en_US/help/topic/G27T64E65VM6JWKK). The source code independently implements the specified behavior; it is not a line-by-line port of an unlicensed converter.
+- [W3C EPUB 3.3](https://www.w3.org/TR/epub-33/)
+- [Amazon Kindle Publishing Guidelines](https://kdp.amazon.com/en_US/help/topic/GU72M65VRFPH43L6)
+- [Amazon navigation guidance](https://kdp.amazon.com/en_US/help/topic/GY3AD8C6C6GAG42N)
+- [Amazon Traditional Chinese publishing limitations](https://kdp.amazon.com/en_US/help/topic/G27T64E65VM6JWKK)
 
 ## Author and acknowledgement
 
