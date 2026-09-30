@@ -1,0 +1,40 @@
+{
+  "name": "epub-tweaker",
+  "version": "1.0.0",
+  "private": true,
+  "author": "Hailong Hao",
+  "homepage": "https://github.com/haohailong/EPUB-Tweaker",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/haohailong/EPUB-Tweaker.git"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc -b --pretty false"
+  },
+  "dependencies": {
+    "@xmldom/xmldom": "^0.8.11",
+    "css-tree": "^3.1.0",
+    "fflate": "^0.8.2",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@types/css-tree": "^2.3.10",
+    "@types/react": "^19.1.16",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^5.0.4",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.7",
+    "vite-plugin-pwa": "^1.0.3",
+    "vitest": "^5.0.2"
+  }
+}
