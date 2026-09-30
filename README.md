@@ -33,6 +33,7 @@ All processing stays inside the browser. Do not close or reload the page while a
 - Correct EPUB ZIP output: `mimetype` is first, exact, and stored uncompressed
 - UTF-8 normalization through structured XML parsing and serialization
 - EPUB 2 NCX and EPUB 3 Navigation Document body-anchor repair
+- Send to Kindle E016 mitigation for optional language attributes and image-only fixed-canvas SVG cover pages in otherwise reflowable EPUBs
 - Obsolete `page-map`, stale Adobe encryption residue, incompatible SVG-title, and specific pseudo-element `box-shadow` cleanup
 - DRM detection without circumvention; standard IDPF/Adobe font obfuscation is preserved
 - Compatibility conversion for structurally problematic Chinese ruby; Japanese ruby is preserved

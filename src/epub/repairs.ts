@@ -14,6 +14,110 @@ function report(entries: ReportEntry[], entry: ReportEntry): void {
   entries.push(entry);
 }
 
+function setTokens(element: Element, attribute: string, tokens: string[]): void {
+  if (tokens.length) element.setAttribute(attribute, tokens.join(' '));
+  else element.removeAttribute(attribute);
+}
+
+function normalizeLanguageMetadata(book: BookModel, entries: ReportEntry[]): void {
+  const metadata = firstByLocalName(book.packageDocument, 'metadata');
+  const languages = metadata ? elementsByLocalName(metadata, 'language') : [];
+  let removed = 0;
+  for (const language of languages) {
+    const elementPrefix = language.prefix || (language.nodeName.includes(':') ? language.nodeName.split(':')[0] : '');
+    for (let index = language.attributes.length - 1; index >= 0; index -= 1) {
+      const attribute = language.attributes.item(index);
+      if (!attribute) continue;
+      const requiredNamespace = (attribute.name === 'xmlns' && !elementPrefix) || attribute.name === `xmlns:${elementPrefix}`;
+      if (requiredNamespace) continue;
+      language.removeAttributeNode(attribute);
+      removed += 1;
+    }
+  }
+  if (removed) report(entries, {
+    rule: 'kindle-language-metadata', kind: 'repair', path: book.packagePath,
+    message: `Removed ${removed} optional language metadata attribute${removed === 1 ? '' : 's'} that can confuse Send to Kindle.`, count: removed
+  });
+}
+
+function repairReflowableImagePages(book: BookModel, entries: ReportEntry[]): void {
+  if (book.layout !== 'reflowable' || book.majorVersion !== 3) return;
+  const packageItems = elementsByLocalName(book.packageDocument, 'item');
+  const packageItemRefs = elementsByLocalName(book.packageDocument, 'itemref');
+  const removedStylesheets = new Set<string>();
+  const repairedPaths: string[] = [];
+
+  for (const spineItem of book.spine) {
+    const manifestItem = book.manifest.find((item) => item.id === spineItem.idref);
+    if (!manifestItem || !XHTML_TYPES.has(manifestItem.mediaType)) continue;
+    const fixedOverride = spineItem.properties.includes('rendition:layout-pre-paginated');
+    if (!manifestItem.properties.includes('svg') && !fixedOverride) continue;
+    const data = book.files.get(manifestItem.path);
+    if (!data) continue;
+    const document = parseXml(decodeText(data), manifestItem.path);
+    const svgs = elementsByLocalName(document, 'svg');
+    if (svgs.length !== 1) continue;
+    const svg = svgs[0];
+    const images = elementsByLocalName(svg, 'image');
+    const descendants = Array.from({ length: svg.getElementsByTagName('*').length }, (_, index) => svg.getElementsByTagName('*').item(index))
+      .filter((element): element is Element => Boolean(element));
+    if (images.length !== 1 || descendants.some((element) => !['image', 'title', 'desc'].includes(element.localName || element.nodeName.split(':').pop() || ''))) continue;
+    const source = images[0].getAttribute('href') || images[0].getAttribute('xlink:href') || images[0].getAttributeNS('http://www.w3.org/1999/xlink', 'href');
+    if (!source || /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(source)) continue;
+    const { file } = splitReference(source);
+    let targetPath: string;
+    try { targetPath = resolvePath(manifestItem.path, file); } catch { continue; }
+    if (!book.files.has(targetPath)) continue;
+
+    const image = document.createElementNS(document.documentElement.namespaceURI, 'img');
+    image.setAttribute('src', source);
+    image.setAttribute('alt', book.title ? `${book.title} — cover` : 'Cover');
+    image.setAttribute('style', 'display:block;max-width:100%;height:auto;margin:0 auto;');
+    svg.parentNode?.replaceChild(image, svg);
+    for (const meta of elementsByLocalName(document, 'meta').filter((element) => element.getAttribute('name')?.toLowerCase() === 'viewport')) meta.parentNode?.removeChild(meta);
+    for (const link of elementsByLocalName(document, 'link').filter((element) => /(?:^|\s)stylesheet(?:\s|$)/i.test(element.getAttribute('rel') ?? ''))) {
+      const href = link.getAttribute('href');
+      if (href && !/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(href)) {
+        try { removedStylesheets.add(resolvePath(manifestItem.path, splitReference(href).file)); } catch { /* Keep an invalid reference for validation to report. */ }
+      }
+      link.parentNode?.removeChild(link);
+    }
+    book.files.set(manifestItem.path, encodeText(serializeXml(document)));
+
+    manifestItem.properties = manifestItem.properties.filter((property) => property !== 'svg');
+    const packageItem = packageItems.find((element) => element.getAttribute('id') === manifestItem.id);
+    if (packageItem) setTokens(packageItem, 'properties', manifestItem.properties);
+    spineItem.properties = spineItem.properties.filter((property) => !['rendition:layout-pre-paginated', 'rendition:spread-none'].includes(property));
+    const packageItemRef = packageItemRefs.find((element) => element.getAttribute('idref') === spineItem.idref);
+    if (packageItemRef) setTokens(packageItemRef, 'properties', spineItem.properties);
+    repairedPaths.push(manifestItem.path);
+  }
+
+  if (!repairedPaths.length) return;
+  const referencedStylesheets = new Set<string>();
+  for (const item of book.manifest.filter((entry) => XHTML_TYPES.has(entry.mediaType))) {
+    const data = book.files.get(item.path);
+    if (!data) continue;
+    const document = parseXml(decodeText(data), item.path);
+    for (const link of elementsByLocalName(document, 'link').filter((element) => /(?:^|\s)stylesheet(?:\s|$)/i.test(element.getAttribute('rel') ?? ''))) {
+      const href = link.getAttribute('href');
+      if (!href || /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(href)) continue;
+      try { referencedStylesheets.add(resolvePath(item.path, splitReference(href).file)); } catch { /* Validation handles invalid references. */ }
+    }
+  }
+  const orphaned = book.manifest.filter((item) => item.mediaType === 'text/css' && removedStylesheets.has(item.path) && !referencedStylesheets.has(item.path));
+  for (const item of orphaned) {
+    const packageItem = packageItems.find((element) => element.getAttribute('id') === item.id);
+    if (packageItem?.parentNode) packageItem.parentNode.removeChild(packageItem);
+    book.files.delete(item.path);
+  }
+  book.manifest = book.manifest.filter((item) => !orphaned.includes(item));
+  report(entries, {
+    rule: 'reflowable-svg-page', kind: 'repair', path: repairedPaths.join(', '),
+    message: `Converted ${repairedPaths.length} image-only fixed-canvas SVG page${repairedPaths.length === 1 ? '' : 's'} to responsive reflowable images for Send to Kindle.`, count: repairedPaths.length
+  });
+}
+
 function ensureMeta(book: BookModel, name: string, content: string): boolean {
   const metadata = firstByLocalName(book.packageDocument, 'metadata');
   if (!metadata) return false;
@@ -325,6 +429,8 @@ export function applyRepairs(
 ): TechnicalReport {
   const entries: ReportEntry[] = [];
   const before = { language: book.language, writingMode: book.writingMode, progression: book.progression };
+  normalizeLanguageMetadata(book, entries);
+  repairReflowableImagePages(book, entries);
   repairNavigation(book, entries);
   removePageMap(book, entries);
   cleanStaleEncryption(book, entries);

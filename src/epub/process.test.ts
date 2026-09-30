@@ -25,6 +25,23 @@ describe('complete EPUB processing', () => {
     expect(decodeText(files.get('OEBPS/style.css')!)).not.toContain('box-shadow');
   });
 
+  it('normalizes Send to Kindle language metadata and image-only fixed-canvas cover pages', async () => {
+    const input = syntheticEpub({ language: 'zh-TW', languageAttributes: true, svgCoverPage: true });
+    const result = await processEpub('kindle-e016.epub', input, defaults);
+    const rules = result.report.entries.map((entry) => entry.rule);
+    expect(rules).toEqual(expect.arrayContaining(['kindle-language-metadata', 'reflowable-svg-page']));
+    const files = openArchiveSync(result.output);
+    const packageText = decodeText(files.get('OEBPS/content.opf')!);
+    const coverText = decodeText(files.get('OEBPS/cover.xhtml')!);
+    expect(packageText).toContain('<dc:language>zh-TW</dc:language>');
+    expect(packageText).not.toContain('rendition:layout-pre-paginated');
+    expect(packageText).not.toContain('properties="svg"');
+    expect(files.has('OEBPS/fixed-cover.css')).toBe(false);
+    expect(coverText).toContain('<img');
+    expect(coverText).not.toContain('<svg');
+    expect(coverText).not.toContain('name="viewport"');
+  });
+
   it('repairs the EPUB 2 NCX body-anchor case', async () => {
     const result = await processEpub('ncx.epub', syntheticEpub({ version: 2, brokenBodyAnchor: true }), defaults);
     expect(result.report.entries.some((entry) => entry.rule === 'body-anchor-navigation')).toBe(true);
