@@ -16,6 +16,7 @@
 <p align="center">
   <a href="https://epub-tweaker.olo.la/"><strong>Open the web app</strong></a>
   · <a href="https://github.com/haohailong/EPUB-Tweaker/issues">Report an issue</a>
+  · <a href="LICENSE">MIT License</a>
 </p>
 
 EPUB Tweaker is a privacy-first Progressive Web App for inspecting, repairing, and adjusting EPUB 2 and EPUB 3 books. It runs entirely in the browser: books are not uploaded, no account is required, and the app can work offline after it has been cached or installed.
@@ -191,6 +192,10 @@ The implementation uses `@xmldom/xmldom` for structured documents, `css-tree` fo
 - [Amazon Kindle Publishing Guidelines](https://kdp.amazon.com/en_US/help/topic/GU72M65VRFPH43L6)
 - [Amazon navigation guidance](https://kdp.amazon.com/en_US/help/topic/GY3AD8C6C6GAG42N)
 - [Amazon Traditional Chinese publishing limitations](https://kdp.amazon.com/en_US/help/topic/G27T64E65VM6JWKK)
+
+## License
+
+EPUB Tweaker is open-source software released under the [MIT License](LICENSE). You may use, copy, modify, merge, publish, distribute, sublicense, and sell copies subject to the license terms.
 
 ## Author and acknowledgement
 

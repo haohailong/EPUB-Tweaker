@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "author": "Hailong Hao",
+  "license": "MIT",
   "homepage": "https://github.com/haohailong/EPUB-Tweaker",
   "repository": {
     "type": "git",

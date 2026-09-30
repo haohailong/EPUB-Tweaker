@@ -16,6 +16,7 @@
 <p align="center">
   <a href="https://epub-tweaker.olo.la/"><strong>開啟網頁版</strong></a>
   · <a href="https://github.com/haohailong/EPUB-Tweaker/issues">回報問題</a>
+  · <a href="LICENSE">MIT License</a>
 </p>
 
 EPUB Tweaker 是一款重視隱私的漸進式網頁應用程式（PWA），可檢查、修復及調整 EPUB 2 與 EPUB 3 電子書。所有處理都在瀏覽器內完成：檔案不會上傳、不需要帳號；應用程式完成快取或安裝後，也能離線運作。
@@ -191,6 +192,10 @@ React 使用者介面
 - [Amazon Kindle 出版指南](https://kdp.amazon.com/en_US/help/topic/GU72M65VRFPH43L6)
 - [Amazon 導覽指南](https://kdp.amazon.com/en_US/help/topic/GY3AD8C6C6GAG42N)
 - [Amazon 繁體中文出版限制](https://kdp.amazon.com/en_US/help/topic/G27T64E65VM6JWKK)
+
+## 授權條款
+
+EPUB Tweaker 是依 [MIT License](LICENSE) 發布的開放原始碼軟體。只要遵守授權條款，即可使用、複製、修改、合併、發布、散布、再授權及銷售軟體副本。
 
 ## 作者與致意
 
