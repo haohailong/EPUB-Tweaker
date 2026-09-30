@@ -270,7 +270,7 @@ export default function App({ onRegisterUpdate, updateApp }: AppProps) {
 
         <section ref={filesSection} className="files-section" aria-labelledby="selected-heading">
           <div className="section-heading"><div><p className="eyebrow">{t('stepThree')}</p><h2 id="selected-heading">{t('selectedFiles')} ({items.length})</h2></div>
-            {items.length > 0 && <div className="batch-actions"><button className="secondary" disabled={!ready} onClick={() => void processAll()}>{t('processAll')}</button><button className="primary" disabled={!finished} onClick={downloadAll}>{t('downloadAll')}</button></div>}
+            {items.length > 0 && <div className="batch-actions"><button className="secondary" disabled={!ready} onClick={() => void processAll()}>{t('processAll')}</button><button className="primary" disabled={!finished} onClick={downloadAll}>{t('downloadAll')}</button>{finished > 0 && <button className="secondary" onClick={() => setItems((current) => current.filter((item) => !item.result))}>{t('clearFinished')}</button>}</div>}
           </div>
           {!items.length && <div className="empty-state"><p>{t('empty')}</p></div>}
           <div className="file-list">
@@ -286,7 +286,6 @@ export default function App({ onRegisterUpdate, updateApp }: AppProps) {
                 onCopy={async () => { await navigator.clipboard.writeText(logText(item)); updateItem(item.id, { copied: true }); setTimeout(() => updateItem(item.id, { copied: false }), 1500); }} />
             ))}
           </div>
-          {finished > 0 && <button className="text-button clear-finished" onClick={() => setItems((current) => current.filter((item) => !item.result))}>{t('clearFinished')}</button>}
         </section>
       </main>
 
