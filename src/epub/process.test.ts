@@ -35,11 +35,30 @@ describe('complete EPUB processing', () => {
     const coverText = decodeText(files.get('OEBPS/cover.xhtml')!);
     expect(packageText).toContain('<dc:language>zh-TW</dc:language>');
     expect(packageText).not.toContain('rendition:layout-pre-paginated');
+    expect(packageText).not.toMatch(/(?:rendition:)?page-spread-(?:left|right|center)/);
     expect(packageText).not.toContain('properties="svg"');
     expect(files.has('OEBPS/fixed-cover.css')).toBe(false);
     expect(coverText).toContain('<img');
     expect(coverText).not.toContain('<svg');
     expect(coverText).not.toContain('name="viewport"');
+  });
+
+  it('removes fixed-page spread hints from reflowable content', async () => {
+    const input = syntheticEpub({ spineProperties: 'page-spread-right rendition:page-spread-center keep-me' });
+    const result = await processEpub('reflowable-spreads.epub', input, defaults);
+    const packageText = decodeText(openArchiveSync(result.output).get('OEBPS/content.opf')!);
+    expect(packageText).not.toContain('page-spread-right');
+    expect(packageText).not.toContain('rendition:page-spread-center');
+    expect(packageText).toContain('properties="keep-me"');
+    expect(result.report.entries.some((entry) => entry.rule === 'reflowable-page-spread')).toBe(true);
+  });
+
+  it('adds the standard writing-mode property beside legacy EPUB prefixes', async () => {
+    const files = openArchiveSync(syntheticEpub({ vertical: true, language: 'zh-Hant' }));
+    files.set('OEBPS/style.css', new TextEncoder().encode('.vrtl{-webkit-writing-mode:vertical-rl;-epub-writing-mode:vertical-rl}'));
+    const result = await processEpub('legacy-vertical.epub', Uint8Array.from(createEpubArchive(files)).buffer, defaults);
+    expect(decodeText(openArchiveSync(result.output).get('OEBPS/style.css')!)).toContain('writing-mode:vertical-rl');
+    expect(result.report.entries.some((entry) => entry.rule === 'standard-writing-mode')).toBe(true);
   });
 
   it('repairs the EPUB 2 NCX body-anchor case', async () => {
@@ -84,6 +103,7 @@ describe('complete EPUB processing', () => {
     expect(result.report.progressionAfter).toBe('rtl');
     expect(result.report.entries.some((entry) => entry.rule === 'vertical-layout')).toBe(false);
     expect(result.report.entries.some((entry) => entry.rule === 'page-progression')).toBe(true);
+    expect(result.report.entries.some((entry) => entry.rule === 'kindle-vertical-chinese' && entry.kind === 'warning')).toBe(true);
   });
 
   it('converts vertical text to horizontal and defaults progression to LTR', async () => {

@@ -9,6 +9,11 @@ const XHTML_TYPES = new Set(['application/xhtml+xml', 'text/html']);
 const XML_TYPES = new Set(['application/xhtml+xml', 'application/xml', 'text/xml', 'image/svg+xml', 'application/x-dtbncx+xml']);
 const VERTICAL_CSS = `html, body { writing-mode: vertical-rl; -epub-writing-mode: vertical-rl; -webkit-writing-mode: vertical-rl; }\nimg, svg { max-inline-size: 100%; block-size: auto; }\n`;
 const HORIZONTAL_CSS = `html, body { writing-mode: horizontal-tb !important; -epub-writing-mode: horizontal-tb !important; -webkit-writing-mode: horizontal-tb !important; }\nimg, svg { max-inline-size: 100%; block-size: auto; }\n`;
+const REFLOWABLE_SPREAD_PROPERTIES = new Set([
+  'page-spread-left', 'page-spread-right', 'page-spread-center',
+  'rendition:page-spread-left', 'rendition:page-spread-right', 'rendition:page-spread-center',
+  'rendition:spread-none'
+]);
 
 function report(entries: ReportEntry[], entry: ReportEntry): void {
   entries.push(entry);
@@ -118,6 +123,24 @@ function repairReflowableImagePages(book: BookModel, entries: ReportEntry[]): vo
   });
 }
 
+function removeReflowableSpreadHints(book: BookModel, entries: ReportEntry[]): void {
+  if (book.layout !== 'reflowable') return;
+  const packageItemRefs = elementsByLocalName(book.packageDocument, 'itemref');
+  let removed = 0;
+  for (const spineItem of book.spine) {
+    const next = spineItem.properties.filter((property) => !REFLOWABLE_SPREAD_PROPERTIES.has(property));
+    removed += spineItem.properties.length - next.length;
+    if (next.length === spineItem.properties.length) continue;
+    spineItem.properties = next;
+    const packageItemRef = packageItemRefs.find((element) => element.getAttribute('idref') === spineItem.idref);
+    if (packageItemRef) setTokens(packageItemRef, 'properties', next);
+  }
+  if (removed) report(entries, {
+    rule: 'reflowable-page-spread', kind: 'repair', path: book.packagePath,
+    message: `Removed ${removed} fixed-page spread hint${removed === 1 ? '' : 's'} from this reflowable publication.`, count: removed
+  });
+}
+
 function ensureMeta(book: BookModel, name: string, content: string): boolean {
   const metadata = firstByLocalName(book.packageDocument, 'metadata');
   if (!metadata) return false;
@@ -223,23 +246,44 @@ function repairCss(book: BookModel, entries: ReportEntry[]): void {
     let ast: csstree.CssNode;
     try { ast = csstree.parse(source); } catch { continue; }
     let removed = 0;
+    let standardizedWritingModes = 0;
     csstree.walk(ast, {
       visit: 'Rule',
       enter(node) {
         if (node.type !== 'Rule') return;
         const selector = csstree.generate(node.prelude);
-        if (!/::?(?:before|after)\b/i.test(selector) || node.block.type !== 'Block') return;
-        node.block.children.forEach((child, item, list) => {
-          if (child.type === 'Declaration' && /^-?(?:webkit-)?box-shadow$/i.test(child.property)) {
-            list.remove(item);
-            removed += 1;
-          }
+        if (node.block.type !== 'Block') return;
+        if (/::?(?:before|after)\b/i.test(selector)) {
+          node.block.children.forEach((child, item, list) => {
+            if (child.type === 'Declaration' && /^-?(?:webkit-)?box-shadow$/i.test(child.property)) {
+              list.remove(item);
+              removed += 1;
+            }
+          });
+        }
+        let hasStandardWritingMode = false;
+        let legacyWritingMode: string | undefined;
+        node.block.children.forEach((child) => {
+          if (child.type !== 'Declaration') return;
+          if (child.property.toLowerCase() === 'writing-mode') hasStandardWritingMode = true;
+          if (/^-(?:webkit|epub)-writing-mode$/i.test(child.property)) legacyWritingMode ??= csstree.generate(child.value);
         });
+        if (!hasStandardWritingMode && legacyWritingMode && /^(?:vertical-(?:rl|lr)|horizontal-tb)$/i.test(legacyWritingMode)) {
+          const declaration = csstree.parse(`writing-mode:${legacyWritingMode}`, { context: 'declaration' });
+          if (declaration.type === 'Declaration') {
+            node.block.children.prependData(declaration);
+            standardizedWritingModes += 1;
+          }
+        }
       }
     });
-    if (removed) {
+    if (removed || standardizedWritingModes) {
       book.files.set(item.path, encodeText(`${csstree.generate(ast)}\n`));
-      report(entries, { rule: 'pseudo-box-shadow', kind: 'repair', path: item.path, message: `Removed ${removed} incompatible pseudo-element box-shadow declaration${removed === 1 ? '' : 's'}.`, count: removed });
+      if (removed) report(entries, { rule: 'pseudo-box-shadow', kind: 'repair', path: item.path, message: `Removed ${removed} incompatible pseudo-element box-shadow declaration${removed === 1 ? '' : 's'}.`, count: removed });
+      if (standardizedWritingModes) report(entries, {
+        rule: 'standard-writing-mode', kind: 'repair', path: item.path,
+        message: `Added ${standardizedWritingModes} standard writing-mode declaration${standardizedWritingModes === 1 ? '' : 's'} alongside legacy EPUB prefixes.`, count: standardizedWritingModes
+      });
     }
   }
 }
@@ -431,6 +475,7 @@ export function applyRepairs(
   const before = { language: book.language, writingMode: book.writingMode, progression: book.progression };
   normalizeLanguageMetadata(book, entries);
   repairReflowableImagePages(book, entries);
+  removeReflowableSpreadHints(book, entries);
   repairNavigation(book, entries);
   removePageMap(book, entries);
   cleanStaleEncryption(book, entries);
@@ -447,6 +492,13 @@ export function applyRepairs(
   if (canConvertVertical && book.writingMode !== 'vertical-rl') addVerticalStyles(book, entries);
   if (canConvertHorizontal && book.writingMode !== 'horizontal') addHorizontalStyles(book, entries);
   const effectiveMode: WritingMode = canConvertHorizontal ? 'horizontal' : canConvertVertical ? 'vertical-rl' : book.writingMode;
+  if (effectiveMode === 'vertical-rl' && /^zh(?:-|$)/i.test(book.language) && !options.japaneseMode) {
+    report(entries, {
+      rule: 'kindle-vertical-chinese', kind: 'warning', path: book.packagePath,
+      message: 'Amazon does not consistently honor vertical Traditional Chinese as reflowable Kindle content. If page direction or font sizing is still wrong, enable Japanese mode or convert the book to horizontal layout.',
+      code: 'KINDLE_VERTICAL_CHINESE_LIMITATION'
+    });
+  }
   const desiredProgression = options.progression === 'auto'
     ? (canConvertHorizontal ? 'ltr' : effectiveMode === 'vertical-rl' ? 'rtl' : book.progression)
     : options.progression;

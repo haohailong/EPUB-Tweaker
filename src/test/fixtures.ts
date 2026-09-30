@@ -18,6 +18,7 @@ export interface FixtureOptions {
   includeImage?: boolean;
   languageAttributes?: boolean;
   svgCoverPage?: boolean;
+  spineProperties?: string;
 }
 
 const enc = (value: string) => strToU8(value);
@@ -69,7 +70,8 @@ export function syntheticEpub(options: FixtureOptions = {}): ArrayBuffer {
   const spineId = options.missingSpine ? 'ghost' : 'chapter';
   const languageAttributes = options.languageAttributes ? ' id="language1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="dcterms:RFC3066"' : '';
   const coverSpine = options.svgCoverPage ? '<itemref idref="cover-page" properties="rendition:layout-pre-paginated rendition:spread-none rendition:page-spread-center"/>' : '';
-  files.set('OEBPS/content.opf', enc(`<?xml version="1.0" encoding="UTF-8"?>\n<package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/" version="${version}.0" unique-identifier="uid"><metadata><dc:identifier id="uid">urn:uuid:fixture</dc:identifier><dc:title>Fixture Book</dc:title><dc:creator>Test Author</dc:creator><dc:language${languageAttributes}>${language}</dc:language>${options.svgCoverPage ? '<meta property="rendition:layout">reflowable</meta>' : ''}</metadata><manifest><item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/><item id="css" href="style.css" media-type="text/css"/>${navManifest}${extraManifest}</manifest><spine${version === 2 ? ' toc="ncx"' : ''}${progression}${pageMap}>${coverSpine}<itemref idref="${spineId}"/></spine></package>`));
+  const spineProperties = options.spineProperties ? ` properties="${options.spineProperties}"` : '';
+  files.set('OEBPS/content.opf', enc(`<?xml version="1.0" encoding="UTF-8"?>\n<package xmlns="http://www.idpf.org/2007/opf" xmlns:dc="http://purl.org/dc/elements/1.1/" version="${version}.0" unique-identifier="uid"><metadata><dc:identifier id="uid">urn:uuid:fixture</dc:identifier><dc:title>Fixture Book</dc:title><dc:creator>Test Author</dc:creator><dc:language${languageAttributes}>${language}</dc:language>${options.svgCoverPage ? '<meta property="rendition:layout">reflowable</meta>' : ''}</metadata><manifest><item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/><item id="css" href="style.css" media-type="text/css"/>${navManifest}${extraManifest}</manifest><spine${version === 2 ? ' toc="ncx"' : ''}${progression}${pageMap}>${coverSpine}<itemref idref="${spineId}"${spineProperties}/></spine></package>`));
   if (options.encrypted || options.staleEncryption) {
     const algorithm = options.encrypted ? 'http://www.w3.org/2001/04/xmlenc#aes256-cbc' : 'http://ns.adobe.com/pdf/enc#RC';
     const target = options.encrypted ? 'OEBPS/cover.png' : 'OEBPS/chapter.xhtml';

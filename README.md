@@ -33,11 +33,12 @@ All processing stays inside the browser. Do not close or reload the page while a
 - Correct EPUB ZIP output: `mimetype` is first, exact, and stored uncompressed
 - UTF-8 normalization through structured XML parsing and serialization
 - EPUB 2 NCX and EPUB 3 Navigation Document body-anchor repair
-- Send to Kindle E016 mitigation for optional language attributes and image-only fixed-canvas SVG cover pages in otherwise reflowable EPUBs
+- Send to Kindle E016 mitigation for optional language attributes, image-only fixed-canvas SVG cover pages, and fixed-page spread hints inside otherwise reflowable EPUBs
 - Obsolete `page-map`, stale Adobe encryption residue, incompatible SVG-title, and specific pseudo-element `box-shadow` cleanup
 - DRM detection without circumvention; standard IDPF/Adobe font obfuscation is preserved
 - Compatibility conversion for structurally problematic Chinese ruby; Japanese ruby is preserved
 - Explicit horizontal-to-`vertical-rl` and vertical-to-horizontal transformations
+- Standards-compatible `writing-mode` declarations added alongside legacy EPUB/WebKit-prefixed CSS
 - Auto, RTL, and LTR page progression controls; vertical Auto explicitly produces RTL and horizontal conversion defaults to LTR
 - Independent Japanese Mode
 - Local image replacement matching using dimensions, aspect ratio, and perceptual hashing when browser canvas APIs are available
@@ -80,7 +81,7 @@ Layout, Japanese Mode, and page progression controls are always visible on the h
 
 ### Japanese Mode
 
-Japanese Mode changes the primary publication language to `ja` and maintains compatible writing-mode metadata. It does not itself enable vertical layout. Japanese ruby is preserved.
+Japanese Mode changes the primary publication language to `ja` and maintains compatible writing-mode metadata. It does not itself enable vertical layout. Japanese ruby is preserved. This mode can help Kindle honor vertical RTL books when Amazon's Traditional Chinese conversion path does not; changing the language metadata can also change the device's font and typography choices.
 
 ### Page progression
 
@@ -165,7 +166,7 @@ Future pushes to `main` will trigger production deployments after the GitHub rep
 
 ## Test corpus
 
-Tests synthesize redistributable EPUB fixtures in memory; no commercial books are included. The corpus covers EPUB 2 and 3, NCX/nav body anchors, UTF-8 serialization, missing manifest/spine resources, progression and both layout transformations, Chinese/Japanese ruby behavior, page-map cleanup, stale versus real encryption, SVG, CSS pseudo-elements, image matching, ZIP ordering/compression, output validation, and second-pass idempotence.
+Tests synthesize redistributable EPUB fixtures in memory; no commercial books are included. The corpus covers EPUB 2 and 3, NCX/nav body anchors, UTF-8 serialization, missing manifest/spine resources, progression and both layout transformations, Chinese/Japanese ruby behavior, page-map cleanup, stale versus real encryption, SVG, CSS pseudo-elements, prefixed writing modes, reflowable spine spread cleanup, system-language selection, image matching, ZIP ordering/compression, output validation, and second-pass idempotence.
 
 If Java is available in CI, EPUBCheck can be added as an extra development validation layer over generated EPUB 3 fixtures. It is not bundled into the browser app.
 
@@ -176,10 +177,11 @@ If Java is available in CI, EPUBCheck can be added as an extra development valid
 - Very large books are rejected at 200 MB compressed, 100 MB per entry, or 600 MB total expanded size to protect mobile browsers.
 - Font obfuscation is preserved; the current pipeline does not modify obfuscated fonts.
 - The validator checks internal consistency but does not run Amazon’s private conversion engine.
+- Amazon's current Traditional Chinese publishing guidance requires horizontal LTR content and says vertical/RTL Traditional Chinese is unsupported. EPUB Tweaker warns on this combination; Japanese Mode may work around device behavior, while horizontal conversion is the most conservative Send to Kindle option.
 
 ## Technical references
 
-Implementation decisions follow the current [W3C EPUB 3.3 specification](https://www.w3.org/TR/epub-33/) for OCF/package/navigation behavior and the current [Amazon Kindle Publishing Guidelines](https://kdp.amazon.com/en_US/help/topic/GU72M65VRFPH43L6), including Amazon’s [navigation guidance](https://kdp.amazon.com/en_US/help/topic/GY3AD8C6C6GAG42N). The source code independently implements the specified behavior; it is not a line-by-line port of an unlicensed converter.
+Implementation decisions follow the current [W3C EPUB 3.3 specification](https://www.w3.org/TR/epub-33/) for OCF/package/navigation behavior and the current [Amazon Kindle Publishing Guidelines](https://kdp.amazon.com/en_US/help/topic/GU72M65VRFPH43L6), including Amazon’s [navigation guidance](https://kdp.amazon.com/en_US/help/topic/GY3AD8C6C6GAG42N) and [Traditional Chinese publishing limitations](https://kdp.amazon.com/en_US/help/topic/G27T64E65VM6JWKK). The source code independently implements the specified behavior; it is not a line-by-line port of an unlicensed converter.
 
 ## Author and acknowledgement
 

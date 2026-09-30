@@ -7,7 +7,7 @@ const en = {
   drop: 'Drop EPUB files here', choose: 'Choose Files', dropHint: 'or use the button below', privacy: 'Files are processed on this device. Nothing is uploaded.',
   selectedFiles: 'Selected files', processAll: 'Process All', downloadAll: 'Download All', clearFinished: 'Clear processed files', confirmClearUndownloaded: '{count} processed file(s) have not been downloaded. Clear them anyway?',
   title: 'Title', author: 'Author', filename: 'Filename', version: 'EPUB version', bookLanguage: 'Language', layout: 'Layout', writingMode: 'Writing mode', progression: 'Page progression', size: 'Size',
-  advanced: 'Advanced Options', processingOptions: 'Processing Options', optionsApplyAll: 'These options apply to every unprocessed EPUB.', resourcesAndOutput: 'Resources and output', layoutOptions: 'Layout', preserveLayout: 'Keep original', vertical: 'Horizontal → vertical', horizontalTransform: 'Vertical → horizontal', japanese: 'Japanese mode', japaneseHelp: 'Makes the e-reader treat the book as Japanese. Font and typography options available on the device may change.',
+  advanced: 'Advanced Options', processingOptions: 'Processing Options', optionsApplyAll: 'These options apply to every unprocessed EPUB.', resourcesAndOutput: 'Resources and output', layoutOptions: 'Layout', preserveLayout: 'Keep original', vertical: 'Horizontal → vertical', horizontalTransform: 'Vertical → horizontal', japanese: 'Japanese mode', japaneseHelp: 'Makes the e-reader treat the book as Japanese. This can help Kindle honor vertical right-to-left layout; device fonts and typography options may change.',
   progressionAuto: 'Auto (recommended)', progressionRtl: 'Right to left', progressionLtr: 'Left to right', resources: 'Resources', replaceImages: 'Replace low-resolution images', chooseImages: 'Choose replacement images', imagesHelp: 'Matching uses dimensions, aspect ratio and perceptual similarity on this device. Filenames do not need to match.',
   output: 'Output', outputName: 'Output filename (optional)', outputHelp: 'A new -tweaked EPUB is downloaded without overwriting the original. The browser controls its save location.', process: 'Process EPUB', remove: 'Remove', download: 'Download EPUB', downloadAgain: 'Download again', transitionHint: 'Before → after',
   statusInspecting: 'Inspecting', statusReady: 'Ready', statusMatching: 'Matching images', statusProcessing: 'Processing', statusRepaired: 'Repaired', statusUnchanged: 'No changes needed', statusError: 'Error', statusDrm: 'DRM protected',
@@ -15,7 +15,7 @@ const en = {
   repairSummary: '{count} compatibility fixes applied', noChanges: 'No compatibility changes were needed. The validated EPUB is ready.', intentionalTweaks: 'Intentional tweaks', warnings: 'Warnings', visibleChanges: 'Visible-content changes', automaticRepairs: 'Automatic repairs',
   technical: 'Technical details', copyLog: 'Copy Log', copied: 'Copied', validation: 'Output validation', beforeAfter: '{before} → {after}',
   validationSuccess: 'All {count} post-processing checks passed.', ruleNavigation: 'Repaired navigation targets', rulePageMap: 'Removed obsolete page-map', ruleStaleEncryption: 'Removed stale encryption metadata', ruleCss: 'Removed incompatible pseudo-element styling', ruleSvg: 'Normalized incompatible SVG titles', ruleRuby: 'Converted incompatible Chinese ruby to parenthetical text', ruleVertical: 'Applied vertical right-to-left layout', ruleHorizontal: 'Converted vertical text to horizontal layout', ruleVerticalSkipped: 'Skipped layout conversion for fixed-layout publication', ruleJapanese: 'Set publication language to Japanese', ruleImage: 'Replaced image with a local high-resolution file', ruleUtf8: 'Normalized text resources to UTF-8', ruleProgression: 'Updated page progression', ruleWritingMode: 'Updated Kindle writing-mode metadata',
-  ruleKindleLanguage: 'Normalized language metadata for Send to Kindle', ruleReflowableSvgPage: 'Converted a fixed-canvas image page to reflowable layout',
+  ruleKindleLanguage: 'Normalized language metadata for Send to Kindle', ruleReflowableSvgPage: 'Converted a fixed-canvas image page to reflowable layout', ruleReflowableSpread: 'Removed fixed-page spread hints from reflowable content', ruleStandardWritingMode: 'Added standards-compatible writing-mode CSS', ruleKindleVerticalChinese: 'Kindle may not honor vertical Traditional Chinese layout; try Japanese mode or convert to horizontal',
   errorInvalid: 'The file is not a valid EPUB archive.', errorContainer: 'META-INF/container.xml is missing.', errorPackage: 'The package document is missing.', errorManifest: 'A referenced manifest resource is missing.', errorSpine: 'A spine reference is invalid.', errorDrm: 'This EPUB contains DRM-protected resources. EPUB Tweaker does not remove DRM.', errorXml: 'An XML resource is malformed and cannot be safely repaired.', errorUnsafe: 'The archive contains an unsafe path.', errorTooLarge: 'The archive exceeds the safe processing limits.', errorValidation: 'The generated EPUB did not pass post-processing validation.',
   imageMatches: 'Image matches', confidence: 'Confidence', original: 'Original', replacement: 'Replacement', automatic: 'Applied automatically', confirm: 'Confirm replacement', noMatch: 'No reliable match found',
   settings: 'Settings', clearData: 'Clear local data', clearDataHelp: 'Clears saved preferences and app caches. It never deletes files on your device.', clearDone: 'Local app data cleared.', close: 'Close',
@@ -33,7 +33,7 @@ const zhHant: typeof en = {
   drop: '將 EPUB 檔案拖到這裡', choose: '選擇檔案', dropHint: '或使用下方按鈕', privacy: '檔案只在此裝置上處理，不會上傳。',
   selectedFiles: '已選檔案', processAll: '全部處理', downloadAll: '全部下載', clearFinished: '清理已處理檔案', confirmClearUndownloaded: '尚有 {count} 個已處理檔案未下載。確定仍要清理嗎？',
   title: '書名', author: '作者', filename: '檔名', version: 'EPUB 版本', bookLanguage: '語言', layout: '版面', writingMode: '書寫模式', progression: '翻頁方向', size: '大小',
-  advanced: '進階選項', processingOptions: '處理選項', optionsApplyAll: '以下選項會套用到所有尚未處理的 EPUB。', resourcesAndOutput: '資源與輸出', layoutOptions: '版面', preserveLayout: '保留原版面', vertical: '橫排 → 直排', horizontalTransform: '直排 → 橫排', japanese: '日文模式', japaneseHelp: '讓電子閱讀器將本書視為日文書。裝置上的字型與排版選項可能改變。',
+  advanced: '進階選項', processingOptions: '處理選項', optionsApplyAll: '以下選項會套用到所有尚未處理的 EPUB。', resourcesAndOutput: '資源與輸出', layoutOptions: '版面', preserveLayout: '保留原版面', vertical: '橫排 → 直排', horizontalTransform: '直排 → 橫排', japanese: '日文模式', japaneseHelp: '讓電子閱讀器將本書視為日文書，可能有助 Kindle 正確套用直排由右至左；裝置上的字型與排版選項可能改變。',
   progressionAuto: '自動（建議）', progressionRtl: '由右至左', progressionLtr: '由左至右', resources: '資源', replaceImages: '替換低解析度圖片', chooseImages: '選擇替換圖片', imagesHelp: '只在此裝置上以尺寸、長寬比與感知相似度配對；檔名無需相同。',
   output: '輸出', outputName: '輸出檔名（選填）', outputHelp: '會下載新的 -tweaked EPUB，不會覆蓋原檔；儲存位置由瀏覽器決定。', process: '處理 EPUB', remove: '移除', download: '下載 EPUB', downloadAgain: '再次下載', transitionHint: '處理前 → 處理後',
   statusInspecting: '正在檢查', statusReady: '就緒', statusMatching: '正在配對圖片', statusProcessing: '正在處理', statusRepaired: '已修復', statusUnchanged: '無需修改', statusError: '錯誤', statusDrm: '受 DRM 保護',
@@ -41,7 +41,7 @@ const zhHant: typeof en = {
   repairSummary: '已套用 {count} 項相容性修復', noChanges: '不需要相容性修改；已驗證的 EPUB 可以下載。', intentionalTweaks: '刻意調整', warnings: '警告', visibleChanges: '可見內容變更', automaticRepairs: '自動修復',
   technical: '技術細節', copyLog: '複製記錄', copied: '已複製', validation: '輸出驗證', beforeAfter: '{before} → {after}',
   validationSuccess: '已通過全部 {count} 項後處理驗證。', ruleNavigation: '修復導覽目標', rulePageMap: '移除過時 page-map', ruleStaleEncryption: '移除失效的加密中繼資料', ruleCss: '移除不相容的偽元素樣式', ruleSvg: '正規化不相容的 SVG 標題', ruleRuby: '將不相容的中文注音轉為括號文字', ruleVertical: '套用由右至左的直排版面', ruleHorizontal: '將直排文字轉為橫排版面', ruleVerticalSkipped: '固定版面出版物已略過版面轉換', ruleJapanese: '將出版語言設為日文', ruleImage: '以本機高解析度檔案替換圖片', ruleUtf8: '將文字資源正規化為 UTF-8', ruleProgression: '更新翻頁方向', ruleWritingMode: '更新 Kindle 書寫模式中繼資料',
-  ruleKindleLanguage: '正規化 Send to Kindle 語言中繼資料', ruleReflowableSvgPage: '將固定畫布圖片頁轉為可重排版面',
+  ruleKindleLanguage: '正規化 Send to Kindle 語言中繼資料', ruleReflowableSvgPage: '將固定畫布圖片頁轉為可重排版面', ruleReflowableSpread: '移除可重排內容中的固定頁面跨頁標記', ruleStandardWritingMode: '補上符合標準的書寫模式 CSS', ruleKindleVerticalChinese: 'Kindle 可能不採用繁體中文直排；可嘗試日文模式或轉為橫排',
   errorInvalid: '檔案不是有效的 EPUB 封裝。', errorContainer: '缺少 META-INF/container.xml。', errorPackage: '缺少書籍套件文件。', errorManifest: '找不到清單所參照的資源。', errorSpine: '閱讀順序參照無效。', errorDrm: '此 EPUB 含有受 DRM 保護的資源。EPUB Tweaker 不會移除 DRM。', errorXml: 'XML 資源格式錯誤，無法安全修復。', errorUnsafe: '壓縮檔含有不安全的路徑。', errorTooLarge: '壓縮檔超出安全處理上限。', errorValidation: '產生的 EPUB 未通過後處理驗證。',
   imageMatches: '圖片配對', confidence: '信心度', original: '原圖', replacement: '替換圖', automatic: '自動套用', confirm: '確認替換', noMatch: '找不到可靠配對',
   settings: '設定', clearData: '清除本機資料', clearDataHelp: '清除已儲存偏好與 App 快取，不會刪除裝置上的檔案。', clearDone: '已清除本機 App 資料。', close: '關閉',
@@ -59,7 +59,7 @@ const zhHans: typeof en = {
   drop: '将 EPUB 文件拖到这里', choose: '选择文件', dropHint: '或使用下方按钮', privacy: '文件只在此设备上处理，不会上传。',
   selectedFiles: '已选文件', processAll: '全部处理', downloadAll: '全部下载', clearFinished: '清理已处理文件', confirmClearUndownloaded: '尚有 {count} 个已处理文件未下载。确定仍要清理吗？',
   title: '书名', author: '作者', filename: '文件名', version: 'EPUB 版本', bookLanguage: '语言', layout: '版式', writingMode: '书写模式', progression: '翻页方向', size: '大小',
-  advanced: '高级选项', processingOptions: '处理选项', optionsApplyAll: '以下选项会应用到所有尚未处理的 EPUB。', resourcesAndOutput: '资源与输出', layoutOptions: '版式', preserveLayout: '保留原版式', vertical: '横排 → 竖排', horizontalTransform: '竖排 → 横排', japanese: '日文模式', japaneseHelp: '让电子阅读器将本书视为日文书。设备上的字体与排版选项可能改变。',
+  advanced: '高级选项', processingOptions: '处理选项', optionsApplyAll: '以下选项会应用到所有尚未处理的 EPUB。', resourcesAndOutput: '资源与输出', layoutOptions: '版式', preserveLayout: '保留原版式', vertical: '横排 → 竖排', horizontalTransform: '竖排 → 横排', japanese: '日文模式', japaneseHelp: '让电子阅读器将本书视为日文书，可能有助 Kindle 正确应用竖排从右到左；设备上的字体和排版选项可能改变。',
   progressionAuto: '自动（推荐）', progressionRtl: '从右到左', progressionLtr: '从左到右', resources: '资源', replaceImages: '替换低分辨率图片', chooseImages: '选择替换图片', imagesHelp: '只在此设备上按尺寸、宽高比和感知相似度匹配；文件名无需相同。',
   output: '输出', outputName: '输出文件名（可选）', outputHelp: '会下载新的 -tweaked EPUB，不会覆盖原文件；保存位置由浏览器决定。', process: '处理 EPUB', remove: '移除', download: '下载 EPUB', downloadAgain: '再次下载', transitionHint: '处理前 → 处理后',
   statusInspecting: '正在检查', statusReady: '就绪', statusMatching: '正在匹配图片', statusProcessing: '正在处理', statusRepaired: '已修复', statusUnchanged: '无需修改', statusError: '错误', statusDrm: '受 DRM 保护',
@@ -67,7 +67,7 @@ const zhHans: typeof en = {
   repairSummary: '已应用 {count} 项兼容性修复', noChanges: '不需要兼容性修改；已验证的 EPUB 可以下载。', intentionalTweaks: '主动调整', warnings: '警告', visibleChanges: '可见内容变更', automaticRepairs: '自动修复',
   technical: '技术细节', copyLog: '复制日志', copied: '已复制', validation: '输出验证', beforeAfter: '{before} → {after}',
   validationSuccess: '已通过全部 {count} 项后处理验证。', ruleNavigation: '修复导航目标', rulePageMap: '移除过时 page-map', ruleStaleEncryption: '移除失效的加密元数据', ruleCss: '移除不兼容的伪元素样式', ruleSvg: '规范化不兼容的 SVG 标题', ruleRuby: '将不兼容的中文注音转为括号文字', ruleVertical: '应用从右到左的竖排版式', ruleHorizontal: '将竖排文字转换为横排版式', ruleVerticalSkipped: '固定版式出版物已跳过版式转换', ruleJapanese: '将出版语言设为日文', ruleImage: '用本地高分辨率文件替换图片', ruleUtf8: '将文字资源规范化为 UTF-8', ruleProgression: '更新翻页方向', ruleWritingMode: '更新 Kindle 书写模式元数据',
-  ruleKindleLanguage: '规范化 Send to Kindle 语言元数据', ruleReflowableSvgPage: '将固定画布图片页转换为可重排版式',
+  ruleKindleLanguage: '规范化 Send to Kindle 语言元数据', ruleReflowableSvgPage: '将固定画布图片页转换为可重排版式', ruleReflowableSpread: '移除可重排内容中的固定页面跨页标记', ruleStandardWritingMode: '补上符合标准的书写模式 CSS', ruleKindleVerticalChinese: 'Kindle 可能不会采用繁体中文竖排；可尝试日文模式或转换为横排',
   errorInvalid: '文件不是有效的 EPUB 封装。', errorContainer: '缺少 META-INF/container.xml。', errorPackage: '缺少书籍包文件。', errorManifest: '找不到清单所引用的资源。', errorSpine: '阅读顺序引用无效。', errorDrm: '此 EPUB 含有受 DRM 保护的资源。EPUB Tweaker 不会移除 DRM。', errorXml: 'XML 资源格式错误，无法安全修复。', errorUnsafe: '压缩包中含有不安全的路径。', errorTooLarge: '压缩包超出安全处理上限。', errorValidation: '生成的 EPUB 未通过后处理验证。',
   imageMatches: '图片匹配', confidence: '置信度', original: '原图', replacement: '替换图', automatic: '自动应用', confirm: '确认替换', noMatch: '未找到可靠匹配',
   settings: '设置', clearData: '清除本地数据', clearDataHelp: '清除已保存的偏好与 App 缓存，不会删除设备上的文件。', clearDone: '已清除本地 App 数据。', close: '关闭',
@@ -81,14 +81,12 @@ const zhHans: typeof en = {
 const resources: Record<ResolvedLanguage, typeof en> = { en, 'zh-Hant': zhHant, 'zh-Hans': zhHans };
 export type TranslationKey = keyof typeof en;
 
-export function resolveLanguage(choice: Language): ResolvedLanguage {
+export function resolveLanguage(choice: Language, systemLanguages?: readonly string[]): ResolvedLanguage {
   if (choice !== 'system') return choice;
-  const languages = typeof navigator === 'undefined' ? ['en'] : navigator.languages?.length ? navigator.languages : [navigator.language];
-  for (const value of languages) {
-    const normalized = value.toLowerCase();
-    if (/^zh-(tw|hk|mo|hant)/.test(normalized) || normalized.includes('hant')) return 'zh-Hant';
-    if (/^zh-(cn|sg|hans)/.test(normalized) || normalized.includes('hans') || normalized === 'zh') return 'zh-Hans';
-  }
+  const languages = systemLanguages ?? (typeof navigator === 'undefined' ? ['en'] : navigator.languages?.length ? navigator.languages : [navigator.language]);
+  const normalized = (languages[0] || 'en').toLowerCase();
+  if (/^zh-(tw|hk|mo|hant)/.test(normalized) || normalized.includes('hant')) return 'zh-Hant';
+  if (/^zh-(cn|sg|hans)/.test(normalized) || normalized.includes('hans') || normalized === 'zh') return 'zh-Hans';
   return 'en';
 }
 

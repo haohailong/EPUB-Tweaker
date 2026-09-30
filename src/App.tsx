@@ -39,7 +39,7 @@ const phaseKeys: Record<WorkerProgress['phase'], TranslationKey> = {
 const ruleKeys: Record<string, TranslationKey> = {
   'body-anchor-navigation': 'ruleNavigation', 'obsolete-page-map': 'rulePageMap', 'stale-encryption-metadata': 'ruleStaleEncryption',
   'pseudo-box-shadow': 'ruleCss', 'svg-title': 'ruleSvg', 'chinese-ruby': 'ruleRuby', 'vertical-layout': 'ruleVertical', 'horizontal-layout': 'ruleHorizontal',
-  'kindle-language-metadata': 'ruleKindleLanguage', 'reflowable-svg-page': 'ruleReflowableSvgPage',
+  'kindle-language-metadata': 'ruleKindleLanguage', 'reflowable-svg-page': 'ruleReflowableSvgPage', 'reflowable-page-spread': 'ruleReflowableSpread', 'standard-writing-mode': 'ruleStandardWritingMode', 'kindle-vertical-chinese': 'ruleKindleVerticalChinese',
   'japanese-mode': 'ruleJapanese', 'image-replacement': 'ruleImage', 'utf8-normalization': 'ruleUtf8', 'page-progression': 'ruleProgression', 'kindle-writing-mode': 'ruleWritingMode',
   'vertical-fixed-layout': 'ruleVerticalSkipped'
 };
