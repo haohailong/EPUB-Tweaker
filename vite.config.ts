@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'prompt',
-      includeAssets: ['icon.svg', 'apple-touch-icon.svg'],
+      includeAssets: ['icon.svg', 'apple-touch-icon.svg', 'pdf-slicer-icon.png'],
       manifest: {
         name: 'EPUB Tweaker',
         short_name: 'EPUB Tweaker',
@@ -24,7 +24,7 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,woff2}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         cleanupOutdatedCaches: true,
         navigateFallbackDenylist: [/^\/api\//]
       }

@@ -27,6 +27,7 @@ interface FileItem {
 const DEFAULT_OPTIONS: ProcessOptions = { vertical: false, horizontal: false, japaneseMode: false, progression: 'auto', imageMappings: {} };
 const GITHUB_URL = 'https://github.com/haohailong/EPUB-Tweaker';
 const FACEBOOK_GROUP_URL = 'https://www.facebook.com/groups/ereaderfamily';
+const PDF_SLICER_URL = 'https://pdf-slicer.olo.la/';
 
 const statusKeys: Record<FileStatus, TranslationKey> = {
   inspecting: 'statusInspecting', ready: 'statusReady', matching: 'statusMatching', processing: 'statusProcessing', repaired: 'statusRepaired', unchanged: 'statusUnchanged', error: 'statusError', drm: 'statusDrm'
@@ -308,6 +309,14 @@ export default function App({ onRegisterUpdate, updateApp }: AppProps) {
           <div className="modal-title"><h2 id="settings-title">{t('settings')}</h2><button className="icon-button" onClick={() => setSettingsOpen(false)} aria-label={t('close')}>×</button></div>
           <div className="settings-privacy"><strong>{t('privacy')}</strong><p>{t('clearDataHelp')}</p></div>
           <button className="danger-button" onClick={() => void clearLocalData()}>{t('clearData')}</button>
+          <div className="settings-apps">
+            <p className="settings-apps-label">{t('moreApps')}</p>
+            <a className="companion-app" href={PDF_SLICER_URL} target="_blank" rel="noreferrer">
+              <img src="/pdf-slicer-icon.png" alt="" />
+              <span><strong>PDF Slicer</strong><small>{t('pdfSlicerDescription')}</small></span>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 16 16 8M9 8h7v7" /></svg>
+            </a>
+          </div>
         </section>
       </div>}
     </div>

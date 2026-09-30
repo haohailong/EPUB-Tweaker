@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="https://epub-tweaker-neo.vercel.app/"><strong>打开网页版</strong></a>
+  <a href="https://epub-tweaker.olo.la/"><strong>打开网页版</strong></a>
   · <a href="https://github.com/haohailong/EPUB-Tweaker/issues">报告问题</a>
 </p>
 
@@ -37,7 +37,7 @@ EPUB Tweaker 是一款注重隐私的渐进式网页应用（PWA），可以检�
 
 ## 使用方法
 
-1. 使用现代浏览器打开 [EPUB Tweaker](https://epub-tweaker-neo.vercel.app/)。
+1. 使用现代浏览器打开 [EPUB Tweaker](https://epub-tweaker.olo.la/)。
 2. 选择版式、日文模式和翻页方向。默认会保留书籍原有的版式和有效翻页方向。
 3. 将一个或多个 `.epub` 文件拖入页面，或者点击“选择文件”。
 4. 查看每本书检测到的书名、EPUB 版本、语言、版式和翻页方向；页面也会显示处理后的预期状态。

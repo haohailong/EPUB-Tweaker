@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="https://epub-tweaker-neo.vercel.app/"><strong>Open the web app</strong></a>
+  <a href="https://epub-tweaker.olo.la/"><strong>Open the web app</strong></a>
   · <a href="https://github.com/haohailong/EPUB-Tweaker/issues">Report an issue</a>
 </p>
 
@@ -37,7 +37,7 @@ It is especially useful for:
 
 ## How to use
 
-1. Open [EPUB Tweaker](https://epub-tweaker-neo.vercel.app/) in a current browser.
+1. Open [EPUB Tweaker](https://epub-tweaker.olo.la/) in a current browser.
 2. Choose the layout, Japanese Mode, and page-progression options. The defaults preserve the book’s existing layout and valid progression.
 3. Drag one or more `.epub` files onto the page, or select **Choose Files**.
 4. Review each book’s detected title, EPUB version, language, layout, and page direction, including the expected state after processing.
