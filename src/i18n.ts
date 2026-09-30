@@ -1,7 +1,7 @@
 import type { Language, ResolvedLanguage } from './types';
 
 const en = {
-  tagline: 'Repair and fine-tune EPUB files for better e-reader compatibility. Fix EPUB files that fail with Send to Kindle.',
+  tagline: 'Repair and fine-tune EPUB files for better e-reader compatibility.', secondaryTagline: '(Also fixes EPUB files that fail with Send to Kindle.)',
   language: 'Language', system: 'System Default', english: 'English', traditional: '繁體中文', simplified: '简体中文', sourceCode: 'View source on GitHub',
   stepOne: 'Step One', stepTwo: 'Step Two', stepThree: 'Step Three',
   drop: 'Drop EPUB files here', choose: 'Choose Files', dropHint: 'or use the button below', privacy: 'Files are processed on this device. Nothing is uploaded.',
@@ -26,7 +26,7 @@ const en = {
 };
 
 const zhHant: typeof en = {
-  tagline: '修復並微調 EPUB，提升電子閱讀器相容性。修復無法透過 Send to Kindle 傳送的 EPUB 檔案。',
+  tagline: '修復並微調 EPUB，提升電子閱讀器相容性。', secondaryTagline: '（亦可修復無法透過 Send to Kindle 傳送的 EPUB 檔案。）',
   language: '語言', system: '跟隨系統', english: 'English', traditional: '繁體中文', simplified: '简体中文', sourceCode: '在 GitHub 查看原始碼',
   stepOne: '第一步', stepTwo: '第二步', stepThree: '第三步',
   drop: '將 EPUB 檔案拖到這裡', choose: '選擇檔案', dropHint: '或使用下方按鈕', privacy: '檔案只在此裝置上處理，不會上傳。',
@@ -51,7 +51,7 @@ const zhHant: typeof en = {
 };
 
 const zhHans: typeof en = {
-  tagline: '修复并微调 EPUB，提升电子阅读器兼容性。修复无法通过 Send to Kindle 发送的 EPUB 文件。',
+  tagline: '修复并微调 EPUB，提升电子阅读器兼容性。', secondaryTagline: '（也可修复无法通过 Send to Kindle 发送的 EPUB 文件。）',
   language: '语言', system: '跟随系统', english: 'English', traditional: '繁體中文', simplified: '简体中文', sourceCode: '在 GitHub 查看源代码',
   stepOne: '第一步', stepTwo: '第二步', stepThree: '第三步',
   drop: '将 EPUB 文件拖到这里', choose: '选择文件', dropHint: '或使用下方按钮', privacy: '文件只在此设备上处理，不会上传。',

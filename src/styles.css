@@ -45,6 +45,7 @@ main { width: min(1180px, calc(100% - 40px)); margin: 0 auto; }
 h1, h2, h3, h4, h5, p { margin-top: 0; }
 h1 { font-family: 'Newsreader', Georgia, serif; font-size: clamp(3.2rem, 9vw, 6.6rem); line-height: .9; letter-spacing: -.055em; margin-bottom: 22px; font-weight: 600; }
 .tagline { font-family: 'Newsreader', Georgia, serif; color: var(--muted); font-size: clamp(1.2rem, 2.5vw, 1.55rem); margin-bottom: 42px; }
+.tagline small { display: block; margin-top: 9px; font-size: clamp(.82rem, 1.35vw, 1rem); line-height: 1.45; }
 .home-options { text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 22px 24px; margin: 0 0 22px; box-shadow: var(--shadow); }
 .home-options-heading { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 18px; }
 .home-options-heading h2 { font-family: 'Newsreader', Georgia, serif; font-size: 1.8rem; margin: 0; }

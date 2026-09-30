@@ -237,7 +237,7 @@ export default function App({ onRegisterUpdate, updateApp }: AppProps) {
         <section className={`hero ${items.length ? 'has-files' : ''}`}>
           <p className="eyebrow">EPUB 2 · EPUB 3 · PWA</p>
           <h1>EPUB Tweaker</h1>
-          <p className="tagline">{t('tagline')}</p>
+          <p className="tagline">{t('tagline')}<small>{t('secondaryTagline')}</small></p>
           <section className="home-options" aria-labelledby="processing-options-title">
             <div className="home-options-heading"><div><p className="eyebrow">{t('stepOne')}</p><h2 id="processing-options-title">{t('processingOptions')}</h2></div><small>{t('optionsApplyAll')}</small></div>
             <div className="home-options-grid">
