@@ -20,6 +20,7 @@ interface FileItem {
   replacements: File[];
   matches: ImageMatch[];
   result?: ProcessResult;
+  downloaded?: boolean;
   copied?: boolean;
 }
 
@@ -153,7 +154,7 @@ export default function App({ onRegisterUpdate, updateApp }: AppProps) {
     updateItem(item.id, { status: 'processing', error: undefined });
     try {
       const result = await processFile(item.file, item.options, item.replacements, (progress) => updateItem(item.id, { progress }));
-      updateItem(item.id, { result, info: result.info, status: result.changed ? 'repaired' : 'unchanged', progress: undefined });
+      updateItem(item.id, { result, downloaded: false, status: result.changed ? 'repaired' : 'unchanged', progress: undefined });
     } catch (caught) {
       const error = caught as Error & { code?: string };
       updateItem(item.id, { status: error.code === 'DRM_PROTECTED' ? 'drm' : 'error', error: { code: error.code, message: error.message }, progress: undefined });
@@ -194,6 +195,7 @@ export default function App({ onRegisterUpdate, updateApp }: AppProps) {
     const outputs = items.flatMap((item) => item.result ? [item.result] : []);
     if (outputs.length === 1) {
       triggerDownload(outputs[0].output, outputs[0].outputName, 'application/epub+zip');
+      setItems((current) => current.map((item) => item.result ? { ...item, downloaded: true } : item));
       return;
     }
     const entries: Zippable = {};
@@ -201,6 +203,13 @@ export default function App({ onRegisterUpdate, updateApp }: AppProps) {
     const readme = strToU8('Generated locally by EPUB Tweaker. No book data was uploaded.\n');
     entries['EPUB-Tweaker.txt'] = readme;
     triggerDownload(zipSync(entries), 'epub-tweaker-results.zip', 'application/zip');
+    setItems((current) => current.map((item) => item.result ? { ...item, downloaded: true } : item));
+  };
+
+  const clearProcessed = () => {
+    const undownloaded = items.filter((item) => item.result && !item.downloaded).length;
+    if (undownloaded > 0 && !window.confirm(t('confirmClearUndownloaded', { count: undownloaded }))) return;
+    setItems((current) => current.filter((item) => !item.result));
   };
 
   const clearLocalData = async () => {
@@ -270,7 +279,7 @@ export default function App({ onRegisterUpdate, updateApp }: AppProps) {
 
         <section ref={filesSection} className="files-section" aria-labelledby="selected-heading">
           <div className="section-heading"><div><p className="eyebrow">{t('stepThree')}</p><h2 id="selected-heading">{t('selectedFiles')} ({items.length})</h2></div>
-            {items.length > 0 && <div className="batch-actions"><button className="secondary" disabled={!ready} onClick={() => void processAll()}>{t('processAll')}</button><button className="primary" disabled={!finished} onClick={downloadAll}>{t('downloadAll')}</button>{finished > 0 && <button className="secondary" onClick={() => setItems((current) => current.filter((item) => !item.result))}>{t('clearFinished')}</button>}</div>}
+            {items.length > 0 && <div className="section-actions"><div className="batch-actions"><button className="secondary" disabled={!ready} onClick={() => void processAll()}>{t('processAll')}</button><button className="primary" disabled={!finished} onClick={downloadAll}>{t('downloadAll')}</button></div>{finished > 0 && <button className="danger-button clear-processed" onClick={clearProcessed}>{t('clearFinished')}</button>}</div>}
           </div>
           {!items.length && <div className="empty-state"><p>{t('empty')}</p></div>}
           <div className="file-list">
@@ -282,7 +291,7 @@ export default function App({ onRegisterUpdate, updateApp }: AppProps) {
                 onOptions={(options) => updateItem(item.id, { options })}
                 onReplacements={(files) => void selectReplacements(item, files)}
                 onToggleMatch={(match, checked) => toggleMatch(item, match, checked)}
-                onDownload={() => item.result && triggerDownload(item.result.output, item.result.outputName, 'application/epub+zip')}
+                onDownload={() => { if (!item.result) return; triggerDownload(item.result.output, item.result.outputName, 'application/epub+zip'); updateItem(item.id, { downloaded: true }); }}
                 onCopy={async () => { await navigator.clipboard.writeText(logText(item)); updateItem(item.id, { copied: true }); setTimeout(() => updateItem(item.id, { copied: false }), 1500); }} />
             ))}
           </div>
@@ -317,6 +326,11 @@ function FileCard({ item, index, language, t, onRemove, onRetry, onProcess, onOp
   const info = item.info;
   const translateWritingMode = (value: BookInfo['writingMode']) => t(value === 'vertical-rl' ? 'verticalRl' : value === 'vertical-lr' ? 'verticalLr' : value === 'horizontal' ? 'horizontal' : 'unknown');
   const translateProgression = (value: BookInfo['progression']) => t(value === 'rtl' ? 'rtl' : value === 'ltr' ? 'ltr' : 'default');
+  const canConvertLayout = info?.layout !== 'fixed';
+  const expectedWritingMode = info ? (canConvertLayout && item.options.horizontal ? 'horizontal' : canConvertLayout && item.options.vertical ? 'vertical-rl' : info.writingMode) : 'unknown';
+  const expectedProgression = info ? (item.options.progression !== 'auto' ? item.options.progression : canConvertLayout && item.options.horizontal ? 'ltr' : expectedWritingMode === 'vertical-rl' ? 'rtl' : info.progression) : 'default';
+  const report = item.result?.report;
+  const transition = (before: string, after: string) => before === after ? (after || '—') : <span className="attribute-transition" title={t('transitionHint')} aria-label={`${before || '—'}，${t('transitionHint')}，${after || '—'}`}><span aria-hidden="true">{before || '—'}</span><span className="transition-arrow" aria-hidden="true">→</span><strong aria-hidden="true">{after || '—'}</strong></span>;
   const errorMessage = item.error?.code && errorKeys[item.error.code] ? t(errorKeys[item.error.code]) : item.error?.message;
   const reports = item.result?.report.entries ?? [];
   const group = (kind: ReportEntry['kind']) => reports.filter((entry) => entry.kind === kind);
@@ -328,8 +342,8 @@ function FileCard({ item, index, language, t, onRemove, onRetry, onProcess, onOp
     </div>
     {item.progress && <div className="progress-wrap" aria-live="polite"><div className="progress-label"><span>{t(phaseKeys[item.progress.phase])}</span><span>{item.progress.percent}%</span></div><progress max="100" value={item.progress.percent} /></div>}
     {info && <dl className="book-meta">
-      <div><dt>{t('filename')}</dt><dd>{item.file.name}</dd></div><div><dt>{t('version')}</dt><dd>{info.version}</dd></div><div><dt>{t('bookLanguage')}</dt><dd>{info.language || '—'}</dd></div>
-      <div><dt>{t('layout')}</dt><dd>{t(info.layout === 'fixed' ? 'fixed' : info.layout === 'reflowable' ? 'reflowable' : 'unknown')}</dd></div><div><dt>{t('writingMode')}</dt><dd>{translateWritingMode(info.writingMode)}</dd></div><div><dt>{t('progression')}</dt><dd>{translateProgression(info.progression)}</dd></div><div><dt>{t('size')}</dt><dd>{formatBytes(item.file.size, language)}</dd></div>
+      <div><dt>{t('filename')}</dt><dd>{item.file.name}</dd></div><div><dt>{t('version')}</dt><dd>{info.version}</dd></div><div><dt>{t('bookLanguage')}</dt><dd>{transition(report?.languageBefore ?? info.language, report?.languageAfter ?? (item.options.japaneseMode ? 'ja' : info.language))}</dd></div>
+      <div><dt>{t('layout')}</dt><dd>{t(info.layout === 'fixed' ? 'fixed' : info.layout === 'reflowable' ? 'reflowable' : 'unknown')}</dd></div><div><dt>{t('writingMode')}</dt><dd>{transition(translateWritingMode(report?.writingModeBefore ?? info.writingMode), translateWritingMode(report?.writingModeAfter ?? expectedWritingMode))}</dd></div><div><dt>{t('progression')}</dt><dd>{transition(translateProgression(report?.progressionBefore ?? info.progression), translateProgression(report?.progressionAfter ?? expectedProgression))}</dd></div><div><dt>{t('size')}</dt><dd>{formatBytes(item.file.size, language)}</dd></div>
     </dl>}
     {errorMessage && <div className="error-box" role="alert"><strong>{t('errorPrefix')}</strong><p>{errorMessage}</p>{item.error?.code && <code>{item.error.code}</code>}</div>}
     {info && !item.result && <section className="card-options" aria-label={t('resourcesAndOutput')}>
@@ -356,7 +370,7 @@ function Report({ item, t, group, onDownload, onCopy }: { item: FileItem; t: Ret
     {group('tweak').length > 0 && <div className="report-group"><h5>{t('intentionalTweaks')}</h5>{renderEntries(group('tweak'))}</div>}
     {group('visible').length > 0 && <div className="report-group visible"><h5>{t('visibleChanges')}</h5>{renderEntries(group('visible'))}</div>}
     {group('warning').length > 0 && <div className="report-group warning"><h5>{t('warnings')}</h5>{renderEntries(group('warning'))}</div>}
-    <div className="card-actions"><button className="primary" onClick={onDownload}>{t('download')}</button></div>
+    <div className="card-actions"><button className="primary" onClick={onDownload}>{t(item.downloaded ? 'downloadAgain' : 'download')}</button></div>
     <details className="technical"><summary>{t('technical')}</summary><div className="technical-body"><dl><div><dt>{t('version')}</dt><dd>{item.result!.report.version}</dd></div><div><dt>{t('bookLanguage')}</dt><dd>{item.result!.report.languageBefore || '—'} → {item.result!.report.languageAfter || '—'}</dd></div><div><dt>{t('writingMode')}</dt><dd>{item.result!.report.writingModeBefore} → {item.result!.report.writingModeAfter}</dd></div><div><dt>{t('progression')}</dt><dd>{item.result!.report.progressionBefore} → {item.result!.report.progressionAfter}</dd></div></dl><p className="validation-pass">✓ {t('validationSuccess', { count: item.result!.report.validationChecks.length })}</p><pre>{logText(item)}</pre><button className="secondary" onClick={onCopy}>{item.copied ? t('copied') : t('copyLog')}</button></div></details>
   </section>;
 }
