@@ -231,11 +231,7 @@ export default function App({ onRegisterUpdate, updateApp }: AppProps) {
           <img src="/icon.svg" alt="" /><span>EPUB Tweaker</span>
         </a>
         <div className="header-actions">
-          <label className="language-select"><span>{t('language')}</span>
-            <select value={languageChoice} onChange={(event) => setLanguageChoice(event.target.value as Language)}>
-              <option value="system">{t('system')}</option><option value="en">{t('english')}</option><option value="zh-Hant">{t('traditional')}</option><option value="zh-Hans">{t('simplified')}</option>
-            </select>
-          </label>
+          <LanguageButtons language={language} label={t('language')} onChange={setLanguageChoice} />
           <a className="github-link" href={GITHUB_URL} target="_blank" rel="noreferrer" aria-label={t('sourceCode')} title={t('sourceCode')}>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .7a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2.23c-3.22.7-3.9-1.37-3.9-1.37-.52-1.34-1.28-1.7-1.28-1.7-1.05-.72.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.57-.29-5.27-1.29-5.27-5.69 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.47.11-3.06 0 0 .97-.31 3.16 1.18a10.98 10.98 0 0 1 5.76 0c2.19-1.49 3.16-1.18 3.16-1.18.63 1.59.23 2.77.11 3.06.74.81 1.19 1.84 1.19 3.1 0 4.41-2.71 5.39-5.28 5.68.41.36.78 1.06.78 2.14v3.27c0 .31.21.67.79.56A11.5 11.5 0 0 0 12 .7Z"/></svg>
           </a>
@@ -310,13 +306,23 @@ export default function App({ onRegisterUpdate, updateApp }: AppProps) {
       {settingsOpen && <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setSettingsOpen(false); }}>
         <section className="modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
           <div className="modal-title"><h2 id="settings-title">{t('settings')}</h2><button className="icon-button" onClick={() => setSettingsOpen(false)} aria-label={t('close')}>×</button></div>
-          <label>{t('language')}<select value={languageChoice} onChange={(event) => setLanguageChoice(event.target.value as Language)}><option value="system">{t('system')}</option><option value="en">{t('english')}</option><option value="zh-Hant">{t('traditional')}</option><option value="zh-Hans">{t('simplified')}</option></select></label>
           <div className="settings-privacy"><strong>{t('privacy')}</strong><p>{t('clearDataHelp')}</p></div>
           <button className="danger-button" onClick={() => void clearLocalData()}>{t('clearData')}</button>
         </section>
       </div>}
     </div>
   );
+}
+
+function LanguageButtons({ language, label, onChange }: { language: Exclude<Language, 'system'>; label: string; onChange: (language: Language) => void }) {
+  const choices = [
+    { value: 'en' as const, label: 'EN' },
+    { value: 'zh-Hant' as const, label: '繁' },
+    { value: 'zh-Hans' as const, label: '简' }
+  ];
+  return <div className="language-buttons" role="group" aria-label={label} title={label}>
+    {choices.map((choice) => <button key={choice.value} type="button" aria-pressed={language === choice.value} onClick={() => onChange(choice.value)}>{choice.label}</button>)}
+  </div>;
 }
 
 interface CardProps {

@@ -495,7 +495,7 @@ export function applyRepairs(
   if (effectiveMode === 'vertical-rl' && /^zh(?:-|$)/i.test(book.language) && !options.japaneseMode) {
     report(entries, {
       rule: 'kindle-vertical-chinese', kind: 'warning', path: book.packagePath,
-      message: 'Amazon does not consistently honor vertical Traditional Chinese as reflowable Kindle content. If page direction or font sizing is still wrong, enable Japanese mode or convert the book to horizontal layout.',
+      message: 'Amazon does not support vertical Traditional Chinese in its Traditional Chinese conversion path and may deliver it as a fixed-layout document. Enable Japanese mode or convert the book to horizontal layout before sending it to Kindle.',
       code: 'KINDLE_VERTICAL_CHINESE_LIMITATION'
     });
   }

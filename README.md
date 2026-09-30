@@ -71,6 +71,8 @@ The worker never evaluates scripts from an EPUB, the UI never inserts book marku
 
 Layout, Japanese Mode, and page progression controls are always visible on the home screen and apply to every unprocessed book. Per-book image replacement and output filename controls appear directly on each selected-file card.
 
+The `EN / 繁 / 简` header control follows the browser's preferred language on first use. Selecting a button stores that explicit choice locally. Clearing local App data returns language selection to automatic system detection.
+
 ### Vertical layout
 
 “Convert horizontal text to vertical” adds a small dedicated stylesheet and links it from reflowable content documents. It sets `writing-mode: vertical-rl` without changing the publication to fixed layout. When progression is Auto, EPUB 3 receives standard `page-progression-direction="rtl"`; EPUB 2 remains EPUB 2 and receives Kindle-compatible `primary-writing-mode` metadata. Existing vertical books are not needlessly restyled.
