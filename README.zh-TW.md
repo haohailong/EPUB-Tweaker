@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>修復並微調 EPUB，提升電子閱讀器相容性。</strong><br>
-  <sub>也可修復可能導致 Send to Kindle 拒收書籍，或將書籍保留為固定版面的已知 EPUB 問題。</sub>
+  <sub>亦可修復常見的 Send to Kindle 失敗問題。</sub>
 </p>
 
 <p align="center">

@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Repair and fine-tune EPUB files for better e-reader compatibility.</strong><br>
-  <sub>Also fixes known EPUB problems that can cause Send to Kindle to reject a book or preserve it as a fixed-layout document.</sub>
+  <sub>Also fixes common Send to Kindle failures.</sub>
 </p>
 
 <p align="center">
