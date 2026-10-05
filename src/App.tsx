@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { strToU8, zipSync, type Zippable } from 'fflate';
 import { resolveLanguage, translator, type TranslationKey } from './i18n';
+import { hasCurrentResult, optionsChangedSinceAttempt, optionsEqual, shouldProcess, snapshotOptions, type QueueItemState } from './queueState';
 import { inspectFile, matchFileImages, processFile } from './workerClient';
 import type { BookInfo, FileStatus, ImageMatch, Language, ProcessOptions, ProcessResult, Progression, ReportEntry, WorkerProgress } from './types';
 
@@ -20,6 +21,8 @@ interface FileItem {
   replacements: File[];
   matches: ImageMatch[];
   result?: ProcessResult;
+  resultOptions?: ProcessOptions;
+  lastAttemptOptions?: ProcessOptions;
   downloaded?: boolean;
   copied?: boolean;
 }
@@ -38,7 +41,7 @@ const phaseKeys: Record<WorkerProgress['phase'], TranslationKey> = {
 };
 
 const ruleKeys: Record<string, TranslationKey> = {
-  'body-anchor-navigation': 'ruleNavigation', 'obsolete-page-map': 'rulePageMap', 'stale-encryption-metadata': 'ruleStaleEncryption',
+  'body-anchor-navigation': 'ruleNavigation', 'ncx-structure': 'ruleNcxStructure', 'ncx-spine-reference': 'ruleNcxSpine', 'missing-script-reference': 'ruleMissingScript', 'obsolete-page-map': 'rulePageMap', 'stale-encryption-metadata': 'ruleStaleEncryption',
   'pseudo-box-shadow': 'ruleCss', 'svg-title': 'ruleSvg', 'chinese-ruby': 'ruleRuby', 'vertical-layout': 'ruleVertical', 'horizontal-layout': 'ruleHorizontal',
   'kindle-language-metadata': 'ruleKindleLanguage', 'reflowable-svg-page': 'ruleReflowableSvgPage', 'reflowable-page-spread': 'ruleReflowableSpread', 'standard-writing-mode': 'ruleStandardWritingMode', 'kindle-vertical-chinese': 'ruleKindleVerticalChinese',
   'japanese-mode': 'ruleJapanese', 'image-replacement': 'ruleImage', 'utf8-normalization': 'ruleUtf8', 'page-progression': 'ruleProgression', 'kindle-writing-mode': 'ruleWritingMode',
@@ -70,6 +73,13 @@ function triggerDownload(data: BlobPart, name: string, type: string): void {
   link.download = name;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function queueState(item: FileItem): QueueItemState {
+  return {
+    status: item.status, options: item.options, infoAvailable: Boolean(item.info), result: item.result,
+    resultOptions: item.resultOptions, lastAttemptOptions: item.lastAttemptOptions
+  };
 }
 
 function logText(item: FileItem): string {
@@ -124,10 +134,7 @@ export default function App({ onRegisterUpdate, updateApp }: AppProps) {
 
   const updateGlobalOptions = (next: Partial<Pick<ProcessOptions, 'vertical' | 'horizontal' | 'japaneseMode' | 'progression'>>) => {
     setGlobalOptions((current) => ({ ...current, ...next }));
-    setItems((current) => current.map((item) => item.result ? item : {
-      ...item,
-      options: { ...item.options, ...next }
-    }));
+    setItems((current) => current.map((item) => ({ ...item, options: { ...item.options, ...next } })));
   };
 
   const inspect = async (item: FileItem) => {
@@ -146,25 +153,32 @@ export default function App({ onRegisterUpdate, updateApp }: AppProps) {
     const valid = files.filter((file) => file.name.toLowerCase().endsWith('.epub'));
     if (valid.length !== files.length) setNotice(t('invalidType'));
     const added = valid.map<FileItem>((file) => ({
-      id: crypto.randomUUID(), file, status: 'inspecting', options: { ...globalOptions, imageMappings: {} }, replacements: [], matches: []
+      id: crypto.randomUUID(), file, status: 'inspecting', options: snapshotOptions(globalOptions), replacements: [], matches: []
     }));
     setItems((current) => [...current, ...added]);
     added.forEach((item) => void inspect(item));
   };
 
   const processOne = async (item: FileItem) => {
+    const attemptedOptions = snapshotOptions(item.options);
     updateItem(item.id, { status: 'processing', error: undefined });
     try {
-      const result = await processFile(item.file, item.options, item.replacements, (progress) => updateItem(item.id, { progress }));
-      updateItem(item.id, { result, downloaded: false, status: result.changed ? 'repaired' : 'unchanged', progress: undefined });
+      const result = await processFile(item.file, attemptedOptions, item.replacements, (progress) => updateItem(item.id, { progress }));
+      updateItem(item.id, {
+        result, resultOptions: attemptedOptions, lastAttemptOptions: attemptedOptions, downloaded: false,
+        status: result.changed ? 'repaired' : 'unchanged', progress: undefined
+      });
     } catch (caught) {
       const error = caught as Error & { code?: string };
-      updateItem(item.id, { status: error.code === 'DRM_PROTECTED' ? 'drm' : 'error', error: { code: error.code, message: error.message }, progress: undefined });
+      updateItem(item.id, {
+        status: error.code === 'DRM_PROTECTED' ? 'drm' : 'error', error: { code: error.code, message: error.message },
+        lastAttemptOptions: attemptedOptions, progress: undefined
+      });
     }
   };
 
   const processAll = async () => {
-    for (const item of items.filter((candidate) => candidate.status === 'ready' || candidate.status === 'error')) {
+    for (const item of items.filter((candidate) => shouldProcess(queueState(candidate)))) {
       await processOne(item);
     }
   };
@@ -208,10 +222,19 @@ export default function App({ onRegisterUpdate, updateApp }: AppProps) {
     setItems((current) => current.map((item) => item.result ? { ...item, downloaded: true } : item));
   };
 
-  const clearProcessed = () => {
+  const clearCompleted = () => {
     const undownloaded = items.filter((item) => item.result && !item.downloaded).length;
     if (undownloaded > 0 && !window.confirm(t('confirmClearUndownloaded', { count: undownloaded }))) return;
     setItems((current) => current.filter((item) => !item.result));
+  };
+
+  const clearUnsuccessful = () => {
+    setItems((current) => current.filter((item) => item.result || (item.status !== 'error' && item.status !== 'drm')));
+  };
+
+  const removeItem = (item: FileItem) => {
+    if (item.result && !item.downloaded && !window.confirm(t('confirmRemoveUndownloaded'))) return;
+    setItems((current) => current.filter((candidate) => candidate.id !== item.id));
   };
 
   const clearLocalData = async () => {
@@ -222,8 +245,9 @@ export default function App({ onRegisterUpdate, updateApp }: AppProps) {
     setSettingsOpen(false);
   };
 
-  const finished = items.filter((item) => item.result).length;
-  const ready = items.some((item) => item.status === 'ready' || item.status === 'error');
+  const completed = items.filter((item) => item.result).length;
+  const unsuccessful = items.filter((item) => !item.result && (item.status === 'error' || item.status === 'drm')).length;
+  const pending = items.filter((item) => shouldProcess(queueState(item))).length;
 
   return (
     <div className="app-shell">
@@ -279,14 +303,13 @@ export default function App({ onRegisterUpdate, updateApp }: AppProps) {
 
         <section ref={filesSection} className="files-section" aria-labelledby="selected-heading">
           <div className="section-heading"><div><p className="eyebrow">{t('stepThree')}</p><h2 id="selected-heading">{t('selectedFiles')} ({items.length})</h2></div>
-            {items.length > 0 && <div className="section-actions"><div className="batch-actions"><button className="secondary" disabled={!ready} onClick={() => void processAll()}>{t('processAll')}</button><button className="primary" disabled={!finished} onClick={downloadAll}>{t('downloadAll')}</button></div>{finished > 0 && <button className="danger-button clear-processed" onClick={clearProcessed}>{t('clearFinished')}</button>}</div>}
+            {items.length > 0 && <div className="section-actions"><div className="batch-actions"><button className="secondary" disabled={!pending} onClick={() => void processAll()}>{t('processPending', { count: pending })}</button><button className="primary" disabled={!completed} onClick={downloadAll}>{t('downloadAll')}</button></div>{(completed > 0 || unsuccessful > 0) && <div className="cleanup-actions">{completed > 0 && <button className="danger-button clear-processed" onClick={clearCompleted}>{t('clearCompleted', { count: completed })}</button>}{unsuccessful > 0 && <button className="danger-button clear-processed" onClick={clearUnsuccessful}>{t('clearUnsuccessful', { count: unsuccessful })}</button>}</div>}</div>}
           </div>
           {!items.length && <div className="empty-state"><p>{t('empty')}</p></div>}
           <div className="file-list">
             {items.map((item, index) => (
               <FileCard key={item.id} item={item} index={index} language={language} t={t}
-                onRemove={() => setItems((current) => current.filter((candidate) => candidate.id !== item.id))}
-                onRetry={() => void inspect({ ...item, status: 'inspecting' })}
+                onRemove={() => removeItem(item)}
                 onProcess={() => void processOne(item)}
                 onOptions={(options) => updateItem(item.id, { options })}
                 onReplacements={(files) => void selectReplacements(item, files)}
@@ -336,34 +359,46 @@ function LanguageButtons({ language, label, onChange }: { language: Exclude<Lang
 
 interface CardProps {
   item: FileItem; index: number; language: string; t: ReturnType<typeof translator>;
-  onRemove: () => void; onRetry: () => void; onProcess: () => void; onOptions: (options: ProcessOptions) => void;
+  onRemove: () => void; onProcess: () => void; onOptions: (options: ProcessOptions) => void;
   onReplacements: (files: FileList | null) => void; onToggleMatch: (match: ImageMatch, checked: boolean) => void; onDownload: () => void; onCopy: () => void;
 }
 
-function FileCard({ item, index, language, t, onRemove, onRetry, onProcess, onOptions, onReplacements, onToggleMatch, onDownload, onCopy }: CardProps) {
+function FileCard({ item, index, language, t, onRemove, onProcess, onOptions, onReplacements, onToggleMatch, onDownload, onCopy }: CardProps) {
   const info = item.info;
+  const state = queueState(item);
+  const currentResult = hasCurrentResult(state);
+  const optionsChanged = optionsChangedSinceAttempt(state);
+  const canProcess = shouldProcess(state);
+  const busy = ['processing', 'matching', 'inspecting'].includes(item.status);
+  const displayStatus = busy ? item.status : currentResult ? (item.result!.changed ? 'repaired' : 'unchanged') : item.status;
+  const displayStatusKey = !busy && optionsChanged ? 'statusOptionsChanged' : statusKeys[displayStatus];
+  const displayStatusClass = !busy && optionsChanged ? 'stale' : displayStatus;
+  const failedWithCurrentOptions = Boolean(item.error && item.lastAttemptOptions && optionsEqual(item.options, item.lastAttemptOptions) && !currentResult);
   const translateWritingMode = (value: BookInfo['writingMode']) => t(value === 'vertical-rl' ? 'verticalRl' : value === 'vertical-lr' ? 'verticalLr' : value === 'horizontal' ? 'horizontal' : 'unknown');
   const translateProgression = (value: BookInfo['progression']) => t(value === 'rtl' ? 'rtl' : value === 'ltr' ? 'ltr' : 'default');
   const canConvertLayout = info?.layout !== 'fixed';
   const expectedWritingMode = info ? (canConvertLayout && item.options.horizontal ? 'horizontal' : canConvertLayout && item.options.vertical ? 'vertical-rl' : info.writingMode) : 'unknown';
   const expectedProgression = info ? (item.options.progression !== 'auto' ? item.options.progression : canConvertLayout && item.options.horizontal ? 'ltr' : expectedWritingMode === 'vertical-rl' ? 'rtl' : info.progression) : 'default';
-  const report = item.result?.report;
+  const report = currentResult ? item.result?.report : undefined;
   const transition = (before: string, after: string) => before === after ? (after || '—') : <span className="attribute-transition" title={t('transitionHint')} aria-label={`${before || '—'}，${t('transitionHint')}，${after || '—'}`}><span aria-hidden="true">{before || '—'}</span><span className="transition-arrow" aria-hidden="true">→</span><strong aria-hidden="true">{after || '—'}</strong></span>;
-  const errorMessage = item.error?.code && errorKeys[item.error.code] ? t(errorKeys[item.error.code]) : item.error?.message;
+  const relevantError = item.error && !optionsChanged && !currentResult ? item.error : undefined;
+  const errorMessage = relevantError?.code && errorKeys[relevantError.code] ? t(errorKeys[relevantError.code]) : relevantError?.message;
   const reports = item.result?.report.entries ?? [];
   const group = (kind: ReportEntry['kind']) => reports.filter((entry) => entry.kind === kind);
   return <article className={`file-card status-${item.status}`}>
     <div className="card-top">
       <div className="file-number">{String(index + 1).padStart(2, '0')}</div>
-      <div className="file-title"><h3>{info?.title || item.file.name}</h3>{info?.author && <p>{info.author}</p>}<span className={`status-pill ${item.status}`}>{t(statusKeys[item.status])}</span></div>
-      <button className="icon-button remove-button" onClick={onRemove} aria-label={t('removeFile')}>×</button>
+      <div className="file-title"><h3>{info?.title || item.file.name}</h3>{info?.author && <p>{info.author}</p>}<span className={`status-pill ${displayStatusClass}`}>{t(displayStatusKey)}</span></div>
+      <button className="remove-file-button" onClick={onRemove}><span aria-hidden="true">×</span>{t('remove')}</button>
     </div>
     {item.progress && <div className="progress-wrap" aria-live="polite"><div className="progress-label"><span>{t(phaseKeys[item.progress.phase])}</span><span>{item.progress.percent}%</span></div><progress max="100" value={item.progress.percent} /></div>}
     {info && <dl className="book-meta">
       <div><dt>{t('filename')}</dt><dd>{item.file.name}</dd></div><div><dt>{t('version')}</dt><dd>{info.version}</dd></div><div><dt>{t('bookLanguage')}</dt><dd>{transition(report?.languageBefore ?? info.language, report?.languageAfter ?? (item.options.japaneseMode ? 'ja' : info.language))}</dd></div>
       <div><dt>{t('layout')}</dt><dd>{t(info.layout === 'fixed' ? 'fixed' : info.layout === 'reflowable' ? 'reflowable' : 'unknown')}</dd></div><div><dt>{t('writingMode')}</dt><dd>{transition(translateWritingMode(report?.writingModeBefore ?? info.writingMode), translateWritingMode(report?.writingModeAfter ?? expectedWritingMode))}</dd></div><div><dt>{t('progression')}</dt><dd>{transition(translateProgression(report?.progressionBefore ?? info.progression), translateProgression(report?.progressionAfter ?? expectedProgression))}</dd></div><div><dt>{t('size')}</dt><dd>{formatBytes(item.file.size, language)}</dd></div>
     </dl>}
-    {errorMessage && <div className="error-box" role="alert"><strong>{t('errorPrefix')}</strong><p>{errorMessage}</p>{item.error?.code && <code>{item.error.code}</code>}</div>}
+    {errorMessage && <div className="error-box" role="alert"><strong>{t('errorPrefix')}</strong><p>{errorMessage}</p>{relevantError?.code && <code>{relevantError.code}</code>}</div>}
+    {!busy && optionsChanged && <div className="queue-note stale-note"><strong>{t('statusOptionsChanged')}</strong><p>{t('optionsChangedHelp')}{item.result ? ` ${t('previousResultAvailable')}` : ''}</p></div>}
+    {failedWithCurrentOptions && <div className="queue-note"><p>{t('sameOptionsNoReprocess')}{item.result ? ` ${t('previousResultAvailable')}` : ''}</p></div>}
     {info && !item.result && <section className="card-options" aria-label={t('resourcesAndOutput')}>
       <div className="advanced-grid card-options-grid">
         <fieldset><legend>{t('resources')}</legend><p className="field-heading">{t('replaceImages')}</p><p className="help-text">{t('imagesHelp')}</p><label className="file-button"><span>{t('chooseImages')}</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple onChange={(event) => onReplacements(event.target.files)} /></label></fieldset>
@@ -374,12 +409,12 @@ function FileCard({ item, index, language, t, onRemove, onRetry, onProcess, onOp
         return <label className={`match-row ${!match.originalPath ? 'no-match' : ''}`} key={match.replacementName}><input type="checkbox" disabled={!match.originalPath} checked={selected} onChange={(event) => onToggleMatch(match, event.target.checked)} /><span><strong>{match.replacementName}</strong><small>{match.originalPath ?? t('noMatch')}</small></span><span className="dimensions">{match.originalWidth && match.originalHeight ? `${match.originalWidth} × ${match.originalHeight}` : '—'} → {match.replacementWidth && match.replacementHeight ? `${match.replacementWidth} × ${match.replacementHeight}` : '—'}</span><span className="confidence">{t('confidence')} {Math.round(match.confidence * 100)}%{match.automatic && <small>{t('automatic')}</small>}</span></label>;
       })}</div>}
     </section>}
-    {!item.result && info && <div className="card-actions"><button className="primary" disabled={['processing', 'matching', 'inspecting'].includes(item.status)} onClick={onProcess}>{t('process')}</button>{item.status === 'error' && <button className="secondary" onClick={onRetry}>{t('retry')}</button>}</div>}
-    {item.result && <Report item={item} t={t} group={group} onDownload={onDownload} onCopy={onCopy} />}
+    {info && (canProcess || Boolean(item.result && !currentResult)) && <div className="card-actions queue-actions">{canProcess && <button className="primary" onClick={onProcess}>{t(item.lastAttemptOptions || item.result ? 'reprocess' : 'process')}</button>}{item.result && !currentResult && <button className="secondary" onClick={onDownload}>{t('downloadPrevious')}</button>}</div>}
+    {item.result && <Report item={item} previous={!currentResult} t={t} group={group} onDownload={onDownload} onCopy={onCopy} />}
   </article>;
 }
 
-function Report({ item, t, group, onDownload, onCopy }: { item: FileItem; t: ReturnType<typeof translator>; group: (kind: ReportEntry['kind']) => ReportEntry[]; onDownload: () => void; onCopy: () => void }) {
+function Report({ item, previous, t, group, onDownload, onCopy }: { item: FileItem; previous: boolean; t: ReturnType<typeof translator>; group: (kind: ReportEntry['kind']) => ReportEntry[]; onDownload: () => void; onCopy: () => void }) {
   const repairs = group('repair');
   const renderEntries = (entries: ReportEntry[]) => <ul>{entries.map((entry, index) => <li key={`${entry.rule}-${entry.path}-${index}`}><span>{t(ruleKeys[entry.rule] ?? 'technical')}{entry.count ? ` (${entry.count})` : ''}</span><code>{entry.path}</code>{(entry.before || entry.after) && <small>{t('beforeAfter', { before: entry.before ?? '—', after: entry.after ?? '—' })}</small>}</li>)}</ul>;
   return <section className="report">
@@ -388,7 +423,7 @@ function Report({ item, t, group, onDownload, onCopy }: { item: FileItem; t: Ret
     {group('tweak').length > 0 && <div className="report-group"><h5>{t('intentionalTweaks')}</h5>{renderEntries(group('tweak'))}</div>}
     {group('visible').length > 0 && <div className="report-group visible"><h5>{t('visibleChanges')}</h5>{renderEntries(group('visible'))}</div>}
     {group('warning').length > 0 && <div className="report-group warning"><h5>{t('warnings')}</h5>{renderEntries(group('warning'))}</div>}
-    <div className="card-actions"><button className="primary" onClick={onDownload}>{t(item.downloaded ? 'downloadAgain' : 'download')}</button></div>
+    {!previous && <div className="card-actions"><button className="primary" onClick={onDownload}>{t(item.downloaded ? 'downloadAgain' : 'download')}</button></div>}
     <details className="technical"><summary>{t('technical')}</summary><div className="technical-body"><dl><div><dt>{t('version')}</dt><dd>{item.result!.report.version}</dd></div><div><dt>{t('bookLanguage')}</dt><dd>{item.result!.report.languageBefore || '—'} → {item.result!.report.languageAfter || '—'}</dd></div><div><dt>{t('writingMode')}</dt><dd>{item.result!.report.writingModeBefore} → {item.result!.report.writingModeAfter}</dd></div><div><dt>{t('progression')}</dt><dd>{item.result!.report.progressionBefore} → {item.result!.report.progressionAfter}</dd></div></dl><p className="validation-pass">✓ {t('validationSuccess', { count: item.result!.report.validationChecks.length })}</p><pre>{logText(item)}</pre><button className="secondary" onClick={onCopy}>{item.copied ? t('copied') : t('copyLog')}</button></div></details>
   </section>;
 }

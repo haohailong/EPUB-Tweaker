@@ -67,6 +67,29 @@ describe('complete EPUB processing', () => {
     expect(decodeText(openArchiveSync(result.output).get('OEBPS/toc.ncx')!)).not.toContain('#reading');
   });
 
+  it('repairs an unlinked EPUB 3 NCX and removes missing local scripts', async () => {
+    const files = openArchiveSync(syntheticEpub());
+    files.set('OEBPS/toc.ncx', new TextEncoder().encode('<?xml version="1.0" encoding="UTF-8"?><ncx xmlns="http://www.daisy.org/z3986/2005/ncx/"><head><meta name="dtb:uid" content="wrong-id"/></head><docTitle><text>Fixture</text></docTitle><navMap><navPoint playOrder="1"><navLabel><text>One</text></navLabel><content src="chapter.xhtml"/></navPoint></navMap></ncx>'));
+    const packageText = decodeText(files.get('OEBPS/content.opf')!).replace(
+      '</manifest>',
+      '<item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/></manifest>'
+    );
+    files.set('OEBPS/content.opf', new TextEncoder().encode(packageText));
+    const navText = decodeText(files.get('OEBPS/nav.xhtml')!).replace('</head>', '<script src="../js/kobo.js"></script></head>');
+    files.set('OEBPS/nav.xhtml', new TextEncoder().encode(navText));
+
+    const result = await processEpub('broken-navigation.epub', Uint8Array.from(createEpubArchive(files)).buffer, defaults);
+    const output = openArchiveSync(result.output);
+    const repairedPackage = decodeText(output.get('OEBPS/content.opf')!);
+    const repairedNav = decodeText(output.get('OEBPS/nav.xhtml')!);
+    const repairedNcx = decodeText(output.get('OEBPS/toc.ncx')!);
+    expect(repairedPackage).toMatch(/<spine[^>]*toc="ncx"/);
+    expect(repairedNav).not.toContain('kobo.js');
+    expect(repairedNcx).toContain('content="urn:uuid:fixture"');
+    expect(repairedNcx).toMatch(/<navPoint[^>]*id="navPoint-1"/);
+    expect(result.report.entries.map((entry) => entry.rule)).toEqual(expect.arrayContaining(['ncx-structure', 'ncx-spine-reference', 'missing-script-reference']));
+  });
+
   it('decodes declared legacy text encoding and serializes Unicode as UTF-8', async () => {
     const files = openArchiveSync(syntheticEpub());
     const latin1 = '<?xml version="1.0" encoding="iso-8859-1"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>Café</title></head><body>Café</body></html>';

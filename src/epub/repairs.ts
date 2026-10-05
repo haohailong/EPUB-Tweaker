@@ -214,6 +214,101 @@ function repairNavigation(book: BookModel, entries: ReportEntry[]): void {
   if (count) report(entries, { rule: 'body-anchor-navigation', kind: 'repair', path: book.navigationPaths.join(', '), message: `Repaired ${count} navigation target${count === 1 ? '' : 's'} that pointed to a body ID.`, count });
 }
 
+function repairNcxSpineReference(book: BookModel, entries: ReportEntry[]): void {
+  const spine = firstByLocalName(book.packageDocument, 'spine');
+  const ncxItems = book.manifest.filter((item) => item.mediaType === 'application/x-dtbncx+xml');
+  if (!spine || ncxItems.length !== 1) return;
+  const ncx = ncxItems[0];
+  if (spine.getAttribute('toc') === ncx.id) return;
+  spine.setAttribute('toc', ncx.id);
+  report(entries, {
+    rule: 'ncx-spine-reference', kind: 'repair', path: book.packagePath,
+    message: `Linked the spine to the included NCX navigation document (${ncx.id}).`, after: ncx.id
+  });
+}
+
+function repairNcxStructure(book: BookModel, entries: ReportEntry[]): void {
+  const packageElement = book.packageDocument.documentElement;
+  const uniqueIdentifierId = packageElement.getAttribute('unique-identifier');
+  const identifiers = elementsByLocalName(book.packageDocument, 'identifier');
+  const publicationIdentifier = (
+    identifiers.find((identifier) => identifier.getAttribute('id') === uniqueIdentifierId)
+    ?? identifiers[0]
+  )?.textContent?.trim();
+
+  for (const item of book.manifest.filter((entry) => entry.mediaType === 'application/x-dtbncx+xml')) {
+    const data = book.files.get(item.path);
+    if (!data) continue;
+    const document = parseXml(decodeText(data), item.path);
+    const navPoints = elementsByLocalName(document, 'navPoint');
+    const usedIds = new Set(navPoints.map((navPoint) => navPoint.getAttribute('id')).filter((id): id is string => Boolean(id)));
+    let assignedIds = 0;
+    let nextId = 1;
+    for (const navPoint of navPoints) {
+      if (navPoint.getAttribute('id')) continue;
+      let id = `navPoint-${nextId++}`;
+      while (usedIds.has(id)) id = `navPoint-${nextId++}`;
+      navPoint.setAttribute('id', id);
+      usedIds.add(id);
+      assignedIds += 1;
+    }
+
+    let identifierUpdated = false;
+    if (publicationIdentifier) {
+      const head = firstByLocalName(document, 'head');
+      let uid = elementsByLocalName(document, 'meta').find((meta) => meta.getAttribute('name')?.toLowerCase() === 'dtb:uid');
+      if (!uid && head) {
+        uid = document.createElementNS(document.documentElement.namespaceURI, 'meta');
+        uid.setAttribute('name', 'dtb:uid');
+        head.appendChild(uid);
+      }
+      if (uid && uid.getAttribute('content') !== publicationIdentifier) {
+        uid.setAttribute('content', publicationIdentifier);
+        identifierUpdated = true;
+      }
+    }
+
+    if (!assignedIds && !identifierUpdated) continue;
+    book.files.set(item.path, encodeText(serializeXml(document)));
+    report(entries, {
+      rule: 'ncx-structure', kind: 'repair', path: item.path,
+      message: `Repaired NCX metadata${assignedIds ? ` and assigned ${assignedIds} missing navigation ID${assignedIds === 1 ? '' : 's'}` : ''}.`,
+      count: assignedIds || undefined
+    });
+  }
+}
+
+function removeMissingLocalScripts(book: BookModel, entries: ReportEntry[]): void {
+  let removed = 0;
+  const repairedPaths: string[] = [];
+  for (const item of book.manifest.filter((entry) => XHTML_TYPES.has(entry.mediaType))) {
+    const data = book.files.get(item.path);
+    if (!data) continue;
+    const document = parseXml(decodeText(data), item.path);
+    let changed = false;
+    for (const script of elementsByLocalName(document, 'script')) {
+      const source = script.getAttribute('src');
+      if (!source || /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(source)) continue;
+      const { file } = splitReference(source);
+      if (!file) continue;
+      let target: string;
+      try { target = resolvePath(item.path, file); } catch { continue; }
+      if (book.files.has(target)) continue;
+      script.parentNode?.removeChild(script);
+      removed += 1;
+      changed = true;
+    }
+    if (changed) {
+      book.files.set(item.path, encodeText(serializeXml(document)));
+      repairedPaths.push(item.path);
+    }
+  }
+  if (removed) report(entries, {
+    rule: 'missing-script-reference', kind: 'repair', path: repairedPaths.join(', '),
+    message: `Removed ${removed} script reference${removed === 1 ? '' : 's'} to missing local resources.`, count: removed
+  });
+}
+
 function removePageMap(book: BookModel, entries: ReportEntry[]): void {
   const removable = book.manifest.filter((item) => item.mediaType === 'application/oebps-page-map+xml');
   const spine = firstByLocalName(book.packageDocument, 'spine');
@@ -477,6 +572,9 @@ export function applyRepairs(
   repairReflowableImagePages(book, entries);
   removeReflowableSpreadHints(book, entries);
   repairNavigation(book, entries);
+  repairNcxStructure(book, entries);
+  repairNcxSpineReference(book, entries);
+  removeMissingLocalScripts(book, entries);
   removePageMap(book, entries);
   cleanStaleEncryption(book, entries);
   repairCss(book, entries);
