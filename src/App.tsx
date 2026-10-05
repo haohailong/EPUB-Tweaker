@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { strToU8, zipSync, type Zippable } from 'fflate';
 import { resolveLanguage, translator, type TranslationKey } from './i18n';
-import { hasCurrentResult, optionsChangedSinceAttempt, optionsEqual, shouldProcess, snapshotOptions, type QueueItemState } from './queueState';
+import { desiredBookState, hasCurrentResult, optionsChangedSinceAttempt, optionsChangedWithoutEffect, optionsEqual, processingOptions, shouldProcess, snapshotOptions, type QueueItemState } from './queueState';
 import { inspectFile, matchFileImages, processFile } from './workerClient';
 import type { BookInfo, FileStatus, ImageMatch, Language, ProcessOptions, ProcessResult, Progression, ReportEntry, WorkerProgress } from './types';
 
@@ -77,7 +77,7 @@ function triggerDownload(data: BlobPart, name: string, type: string): void {
 
 function queueState(item: FileItem): QueueItemState {
   return {
-    status: item.status, options: item.options, infoAvailable: Boolean(item.info), result: item.result,
+    status: item.status, options: item.options, info: item.info, result: item.result,
     resultOptions: item.resultOptions, lastAttemptOptions: item.lastAttemptOptions
   };
 }
@@ -161,9 +161,10 @@ export default function App({ onRegisterUpdate, updateApp }: AppProps) {
 
   const processOne = async (item: FileItem) => {
     const attemptedOptions = snapshotOptions(item.options);
+    const effectiveOptions = processingOptions(queueState(item));
     updateItem(item.id, { status: 'processing', error: undefined });
     try {
-      const result = await processFile(item.file, attemptedOptions, item.replacements, (progress) => updateItem(item.id, { progress }));
+      const result = await processFile(item.file, effectiveOptions, item.replacements, (progress) => updateItem(item.id, { progress }));
       updateItem(item.id, {
         result, resultOptions: attemptedOptions, lastAttemptOptions: attemptedOptions, downloaded: false,
         status: result.changed ? 'repaired' : 'unchanged', progress: undefined
@@ -368,17 +369,18 @@ function FileCard({ item, index, language, t, onRemove, onProcess, onOptions, on
   const state = queueState(item);
   const currentResult = hasCurrentResult(state);
   const optionsChanged = optionsChangedSinceAttempt(state);
+  const resultUnaffected = optionsChangedWithoutEffect(state);
   const canProcess = shouldProcess(state);
   const busy = ['processing', 'matching', 'inspecting'].includes(item.status);
   const displayStatus = busy ? item.status : currentResult ? (item.result!.changed ? 'repaired' : 'unchanged') : item.status;
-  const displayStatusKey = !busy && optionsChanged ? 'statusOptionsChanged' : statusKeys[displayStatus];
-  const displayStatusClass = !busy && optionsChanged ? 'stale' : displayStatus;
+  const displayStatusKey = !busy && optionsChanged ? 'statusOptionsChanged' : !busy && resultUnaffected ? 'statusResultUnaffected' : statusKeys[displayStatus];
+  const displayStatusClass = !busy && optionsChanged ? 'stale' : !busy && resultUnaffected ? 'unchanged' : displayStatus;
   const failedWithCurrentOptions = Boolean(item.error && item.lastAttemptOptions && optionsEqual(item.options, item.lastAttemptOptions) && !currentResult);
   const translateWritingMode = (value: BookInfo['writingMode']) => t(value === 'vertical-rl' ? 'verticalRl' : value === 'vertical-lr' ? 'verticalLr' : value === 'horizontal' ? 'horizontal' : 'unknown');
   const translateProgression = (value: BookInfo['progression']) => t(value === 'rtl' ? 'rtl' : value === 'ltr' ? 'ltr' : 'default');
-  const canConvertLayout = info?.layout !== 'fixed';
-  const expectedWritingMode = info ? (canConvertLayout && item.options.horizontal ? 'horizontal' : canConvertLayout && item.options.vertical ? 'vertical-rl' : info.writingMode) : 'unknown';
-  const expectedProgression = info ? (item.options.progression !== 'auto' ? item.options.progression : canConvertLayout && item.options.horizontal ? 'ltr' : expectedWritingMode === 'vertical-rl' ? 'rtl' : info.progression) : 'default';
+  const desired = desiredBookState(state);
+  const expectedWritingMode = desired?.writingMode ?? 'unknown';
+  const expectedProgression = desired?.progression ?? 'default';
   const report = currentResult ? item.result?.report : undefined;
   const transition = (before: string, after: string) => before === after ? (after || '—') : <span className="attribute-transition" title={t('transitionHint')} aria-label={`${before || '—'}，${t('transitionHint')}，${after || '—'}`}><span aria-hidden="true">{before || '—'}</span><span className="transition-arrow" aria-hidden="true">→</span><strong aria-hidden="true">{after || '—'}</strong></span>;
   const relevantError = item.error && !optionsChanged && !currentResult ? item.error : undefined;
@@ -398,6 +400,7 @@ function FileCard({ item, index, language, t, onRemove, onProcess, onOptions, on
     </dl>}
     {errorMessage && <div className="error-box" role="alert"><strong>{t('errorPrefix')}</strong><p>{errorMessage}</p>{relevantError?.code && <code>{relevantError.code}</code>}</div>}
     {!busy && optionsChanged && <div className="queue-note stale-note"><strong>{t('statusOptionsChanged')}</strong><p>{t('optionsChangedHelp')}{item.result ? ` ${t('previousResultAvailable')}` : ''}</p></div>}
+    {!busy && resultUnaffected && <div className="queue-note"><strong>{t('statusResultUnaffected')}</strong><p>{t('resultUnaffectedHelp')}</p></div>}
     {failedWithCurrentOptions && <div className="queue-note"><p>{t('sameOptionsNoReprocess')}{item.result ? ` ${t('previousResultAvailable')}` : ''}</p></div>}
     {info && !item.result && <section className="card-options" aria-label={t('resourcesAndOutput')}>
       <div className="advanced-grid card-options-grid">
