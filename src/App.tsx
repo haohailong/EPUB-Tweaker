@@ -16,7 +16,7 @@ interface FileItem {
   status: FileStatus;
   info?: BookInfo;
   progress?: WorkerProgress;
-  error?: { code?: string; message: string };
+  error?: { code?: string; message: string; path?: string };
   options: ProcessOptions;
   replacements: File[];
   matches: ImageMatch[];
@@ -41,7 +41,7 @@ const phaseKeys: Record<WorkerProgress['phase'], TranslationKey> = {
 };
 
 const ruleKeys: Record<string, TranslationKey> = {
-  'body-anchor-navigation': 'ruleNavigation', 'ncx-structure': 'ruleNcxStructure', 'ncx-spine-reference': 'ruleNcxSpine', 'missing-script-reference': 'ruleMissingScript', 'obsolete-page-map': 'rulePageMap', 'stale-encryption-metadata': 'ruleStaleEncryption',
+  'body-anchor-navigation': 'ruleNavigation', 'ncx-structure': 'ruleNcxStructure', 'ncx-spine-reference': 'ruleNcxSpine', 'missing-script-reference': 'ruleMissingScript', 'missing-manifest-resource': 'ruleMissingManifestResource', 'obsolete-page-map': 'rulePageMap', 'stale-encryption-metadata': 'ruleStaleEncryption',
   'pseudo-box-shadow': 'ruleCss', 'svg-title': 'ruleSvg', 'chinese-ruby': 'ruleRuby', 'vertical-layout': 'ruleVertical', 'horizontal-layout': 'ruleHorizontal',
   'kindle-language-metadata': 'ruleKindleLanguage', 'reflowable-svg-page': 'ruleReflowableSvgPage', 'reflowable-page-spread': 'ruleReflowableSpread', 'standard-writing-mode': 'ruleStandardWritingMode', 'kindle-vertical-chinese': 'ruleKindleVerticalChinese',
   'japanese-mode': 'ruleJapanese', 'image-replacement': 'ruleImage', 'utf8-normalization': 'ruleUtf8', 'page-progression': 'ruleProgression', 'kindle-writing-mode': 'ruleWritingMode',
@@ -143,8 +143,8 @@ export default function App({ onRegisterUpdate, updateApp }: AppProps) {
       const info = await inspectFile(item.file, (progress) => updateItem(item.id, { progress }));
       updateItem(item.id, { info, status: 'ready', progress: undefined });
     } catch (caught) {
-      const error = caught as Error & { code?: string };
-      updateItem(item.id, { status: error.code === 'DRM_PROTECTED' ? 'drm' : 'error', error: { code: error.code, message: error.message }, progress: undefined });
+      const error = caught as Error & { code?: string; path?: string };
+      updateItem(item.id, { status: error.code === 'DRM_PROTECTED' ? 'drm' : 'error', error: { code: error.code, message: error.message, path: error.path }, progress: undefined });
     }
   };
 
@@ -170,9 +170,9 @@ export default function App({ onRegisterUpdate, updateApp }: AppProps) {
         status: result.changed ? 'repaired' : 'unchanged', progress: undefined
       });
     } catch (caught) {
-      const error = caught as Error & { code?: string };
+      const error = caught as Error & { code?: string; path?: string };
       updateItem(item.id, {
-        status: error.code === 'DRM_PROTECTED' ? 'drm' : 'error', error: { code: error.code, message: error.message },
+        status: error.code === 'DRM_PROTECTED' ? 'drm' : 'error', error: { code: error.code, message: error.message, path: error.path },
         lastAttemptOptions: attemptedOptions, progress: undefined
       });
     }
@@ -193,8 +193,8 @@ export default function App({ onRegisterUpdate, updateApp }: AppProps) {
       const imageMappings = Object.fromEntries(matches.filter((match) => match.automatic && match.originalPath).map((match) => [match.replacementName, match.originalPath!]));
       updateItem(item.id, (current) => ({ matches, status: 'ready', progress: undefined, options: { ...current.options, imageMappings } }));
     } catch (caught) {
-      const error = caught as Error & { code?: string };
-      updateItem(item.id, { status: 'error', error: { code: error.code, message: error.message }, progress: undefined });
+      const error = caught as Error & { code?: string; path?: string };
+      updateItem(item.id, { status: 'error', error: { code: error.code, message: error.message, path: error.path }, progress: undefined });
     }
   };
 
@@ -398,7 +398,7 @@ function FileCard({ item, index, language, t, onRemove, onProcess, onOptions, on
       <div><dt>{t('filename')}</dt><dd>{item.file.name}</dd></div><div><dt>{t('version')}</dt><dd>{info.version}</dd></div><div><dt>{t('bookLanguage')}</dt><dd>{transition(report?.languageBefore ?? info.language, report?.languageAfter ?? (item.options.japaneseMode ? 'ja' : info.language))}</dd></div>
       <div><dt>{t('layout')}</dt><dd>{t(info.layout === 'fixed' ? 'fixed' : info.layout === 'reflowable' ? 'reflowable' : 'unknown')}</dd></div><div><dt>{t('writingMode')}</dt><dd>{transition(translateWritingMode(report?.writingModeBefore ?? info.writingMode), translateWritingMode(report?.writingModeAfter ?? expectedWritingMode))}</dd></div><div><dt>{t('progression')}</dt><dd>{transition(translateProgression(report?.progressionBefore ?? info.progression), translateProgression(report?.progressionAfter ?? expectedProgression))}</dd></div><div><dt>{t('size')}</dt><dd>{formatBytes(item.file.size, language)}</dd></div>
     </dl>}
-    {errorMessage && <div className="error-box" role="alert"><strong>{t('errorPrefix')}</strong><p>{errorMessage}</p>{relevantError?.code && <code>{relevantError.code}</code>}</div>}
+    {errorMessage && <div className="error-box" role="alert"><strong>{t('errorPrefix')}</strong><p>{errorMessage}</p>{relevantError?.code && <code>{relevantError.code}{relevantError.path ? ` · ${relevantError.path}` : ''}</code>}</div>}
     {!busy && optionsChanged && <div className="queue-note stale-note"><strong>{t('statusOptionsChanged')}</strong><p>{t('optionsChangedHelp')}{item.result ? ` ${t('previousResultAvailable')}` : ''}</p></div>}
     {!busy && resultUnaffected && <div className="queue-note"><strong>{t('statusResultUnaffected')}</strong><p>{t('resultUnaffectedHelp')}</p></div>}
     {failedWithCurrentOptions && <div className="queue-note"><p>{t('sameOptionsNoReprocess')}{item.result ? ` ${t('previousResultAvailable')}` : ''}</p></div>}

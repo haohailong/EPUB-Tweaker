@@ -7,6 +7,7 @@ import type { ProcessOptions, ReplacementPayload, ReportEntry, TechnicalReport, 
 
 const XHTML_TYPES = new Set(['application/xhtml+xml', 'text/html']);
 const XML_TYPES = new Set(['application/xhtml+xml', 'application/xml', 'text/xml', 'image/svg+xml', 'application/x-dtbncx+xml']);
+const REFERENCE_TEXT_TYPES = new Set([...XML_TYPES, 'text/html', 'text/css']);
 const VERTICAL_CSS = `html, body { writing-mode: vertical-rl; -epub-writing-mode: vertical-rl; -webkit-writing-mode: vertical-rl; }\nimg, svg { max-inline-size: 100%; block-size: auto; }\n`;
 const HORIZONTAL_CSS = `html, body { writing-mode: horizontal-tb !important; -epub-writing-mode: horizontal-tb !important; -webkit-writing-mode: horizontal-tb !important; }\nimg, svg { max-inline-size: 100%; block-size: auto; }\n`;
 const REFLOWABLE_SPREAD_PROPERTIES = new Set([
@@ -22,6 +23,69 @@ function report(entries: ReportEntry[], entry: ReportEntry): void {
 function setTokens(element: Element, attribute: string, tokens: string[]): void {
   if (tokens.length) element.setAttribute(attribute, tokens.join(' '));
   else element.removeAttribute(attribute);
+}
+
+function resolvesToPath(sourcePath: string, reference: string, targetPath: string): boolean {
+  const value = reference.trim().replace(/^['"]|['"]$/g, '');
+  if (!value || /^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(value)) return false;
+  try {
+    return resolvePath(sourcePath, splitReference(value).file) === targetPath;
+  } catch {
+    return false;
+  }
+}
+
+function missingManifestItemIsReferenced(book: BookModel, item: BookModel['manifest'][number]): boolean {
+  if (item.properties.includes('cover-image')) return true;
+  if (book.spine.some((entry) => entry.idref === item.id)) return true;
+  if (book.navigationPaths.includes(item.path)) return true;
+
+  const idReferenceAttributes = new Set(['content', 'fallback', 'handler', 'media-overlay', 'toc']);
+  const packageElements = book.packageDocument.getElementsByTagName('*');
+  for (let index = 0; index < packageElements.length; index += 1) {
+    const element = packageElements.item(index);
+    if (!element) continue;
+    for (const attribute of idReferenceAttributes) {
+      if (element.getAttribute(attribute) === item.id) return true;
+    }
+  }
+
+  for (const source of book.manifest) {
+    if (source.path === item.path || !REFERENCE_TEXT_TYPES.has(source.mediaType)) continue;
+    const data = book.files.get(source.path);
+    if (!data) continue;
+    const text = decodeText(data);
+    const references = [
+      ...text.matchAll(/(?:href|src|poster|data|xlink:href)\s*=\s*["']([^"']+)["']/gi),
+      ...text.matchAll(/url\(\s*([^)]+?)\s*\)/gi)
+    ].map((match) => match[1]);
+    for (const match of text.matchAll(/srcset\s*=\s*["']([^"']+)["']/gi)) {
+      references.push(...match[1].split(',').map((candidate) => candidate.trim().split(/\s+/, 1)[0]));
+    }
+    if (references.some((reference) => resolvesToPath(source.path, reference, item.path))) return true;
+  }
+  return false;
+}
+
+function removeUnreferencedMissingImages(book: BookModel, entries: ReportEntry[]): void {
+  const removable = book.manifest.filter((item) => (
+    item.mediaType.startsWith('image/')
+    && !book.files.has(item.path)
+    && !missingManifestItemIsReferenced(book, item)
+  ));
+  if (!removable.length) return;
+
+  const packageItems = elementsByLocalName(book.packageDocument, 'item');
+  for (const item of removable) {
+    const element = packageItems.find((candidate) => candidate.getAttribute('id') === item.id);
+    element?.parentNode?.removeChild(element);
+  }
+  book.manifest = book.manifest.filter((item) => !removable.includes(item));
+  report(entries, {
+    rule: 'missing-manifest-resource', kind: 'repair', path: removable.map((item) => item.path).join(', '),
+    message: `Removed ${removable.length} unreferenced missing image entr${removable.length === 1 ? 'y' : 'ies'} from the manifest.`,
+    count: removable.length
+  });
 }
 
 function normalizeLanguageMetadata(book: BookModel, entries: ReportEntry[]): void {
@@ -568,6 +632,7 @@ export function applyRepairs(
 ): TechnicalReport {
   const entries: ReportEntry[] = [];
   const before = { language: book.language, writingMode: book.writingMode, progression: book.progression };
+  removeUnreferencedMissingImages(book, entries);
   normalizeLanguageMetadata(book, entries);
   repairReflowableImagePages(book, entries);
   removeReflowableSpreadHints(book, entries);

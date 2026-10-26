@@ -28,7 +28,9 @@ export async function inspectEpub(buffer: ArrayBuffer, callback?: ProgressCallba
   const book = parseBook(files);
   const info = toBookInfo(book);
   for (const image of info.imageResources) {
-    const dimensions = imageDimensions(files.get(image.path)!);
+    const data = files.get(image.path);
+    if (!data) continue;
+    const dimensions = imageDimensions(data);
     image.width = dimensions?.width;
     image.height = dimensions?.height;
   }

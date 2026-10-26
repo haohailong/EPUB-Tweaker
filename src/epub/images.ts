@@ -92,7 +92,7 @@ export async function matchImages(
   replacements: ReplacementPayload[]
 ): Promise<ImageMatch[]> {
   const originalData = await Promise.all(
-    originals.map(async (item) => {
+    originals.filter((item) => files.has(item.path)).map(async (item) => {
       const bytes = files.get(item.path)!;
       return { ...item, bytes, dimensions: imageDimensions(bytes), hash: await averageHash(bytes, item.mediaType) };
     })

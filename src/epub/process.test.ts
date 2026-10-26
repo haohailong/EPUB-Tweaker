@@ -169,6 +169,42 @@ describe('complete EPUB processing', () => {
     await expect(processEpub('spine.epub', syntheticEpub({ missingSpine: true }), defaults)).rejects.toMatchObject({ code: 'SPINE_RESOURCE_MISSING' });
   });
 
+  it('removes a missing image manifest entry when nothing references it', async () => {
+    const files = openArchiveSync(syntheticEpub());
+    const packageText = decodeText(files.get('OEBPS/content.opf')!).replace(
+      '</manifest>',
+      '<item id="orphan-image" href="missing.png" media-type="image/png"/></manifest>'
+    );
+    files.set('OEBPS/content.opf', new TextEncoder().encode(packageText));
+    const input = Uint8Array.from(createEpubArchive(files)).buffer;
+
+    const inspected = await inspectEpub(input);
+    expect(inspected.imageResources.some((image) => image.path === 'OEBPS/missing.png')).toBe(true);
+    const result = await processEpub('orphan-image.epub', input, defaults);
+    const output = openArchiveSync(result.output);
+    expect(decodeText(output.get('OEBPS/content.opf')!)).not.toContain('missing.png');
+    expect(result.report.entries).toEqual(expect.arrayContaining([
+      expect.objectContaining({ rule: 'missing-manifest-resource', path: 'OEBPS/missing.png' })
+    ]));
+  });
+
+  it('keeps a referenced missing image and reports its exact path', async () => {
+    const files = openArchiveSync(syntheticEpub());
+    const packageText = decodeText(files.get('OEBPS/content.opf')!).replace(
+      '</manifest>',
+      '<item id="missing-image" href="missing.png" media-type="image/png"/></manifest>'
+    );
+    const chapterText = decodeText(files.get('OEBPS/chapter.xhtml')!).replace('</body>', '<img src="missing.png"/></body>');
+    files.set('OEBPS/content.opf', new TextEncoder().encode(packageText));
+    files.set('OEBPS/chapter.xhtml', new TextEncoder().encode(chapterText));
+    const input = Uint8Array.from(createEpubArchive(files)).buffer;
+
+    await expect(inspectEpub(input)).resolves.toBeDefined();
+    await expect(processEpub('referenced-image.epub', input, defaults)).rejects.toMatchObject({
+      code: 'MANIFEST_RESOURCE_MISSING', path: 'OEBPS/missing.png'
+    });
+  });
+
   it('is idempotent after the first repair pass', async () => {
     const first = await processEpub('book.epub', syntheticEpub({ brokenBodyAnchor: true, cssIssue: true }), defaults);
     const second = await processEpub(first.outputName, first.output, defaults);
