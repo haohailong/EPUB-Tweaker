@@ -47,19 +47,69 @@ function getMetadataValue(document: Document, localName: string): string {
   return textOf(firstByLocalName(document, 'metadata') ?? document, localName);
 }
 
+function writingModeValue(text: string): WritingMode | undefined {
+  if (/(?:-epub-|-webkit-)?writing-mode\s*:\s*vertical-rl/i.test(text)) return 'vertical-rl';
+  if (/(?:-epub-|-webkit-)?writing-mode\s*:\s*vertical-lr/i.test(text)) return 'vertical-lr';
+  if (/(?:-epub-|-webkit-)?writing-mode\s*:\s*horizontal-tb/i.test(text)) return 'horizontal';
+  return undefined;
+}
+
+function mostCommonMode(modes: WritingMode[]): WritingMode | undefined {
+  if (!modes.length) return undefined;
+  const counts = new Map<WritingMode, number>();
+  for (const mode of modes) counts.set(mode, (counts.get(mode) ?? 0) + 1);
+  return modes.reduce((best, mode) => (counts.get(mode) ?? 0) > (counts.get(best) ?? 0) ? mode : best);
+}
+
 function detectWritingMode(files: ArchiveFiles, manifest: ManifestItem[]): WritingMode {
-  const candidates = manifest.filter((item) => item.mediaType === 'text/css' || /xhtml|html/.test(item.mediaType));
-  const horizontalOverride = candidates.find((item) => /epub-tweaker-horizontal(?:-\d+)?\.css$/i.test(item.path));
-  if (horizontalOverride) {
-    const data = files.get(horizontalOverride.path);
-    if (data && /writing-mode\s*:\s*horizontal-tb/i.test(decodeText(data))) return 'horizontal';
+  const contentItems = manifest.filter((item) => /xhtml|html/.test(item.mediaType));
+  const inlineModes: WritingMode[] = [];
+  const linkedOverrides: WritingMode[] = [];
+  const classModes: WritingMode[] = [];
+
+  for (const item of contentItems) {
+    const data = files.get(item.path);
+    if (!data) continue;
+    try {
+      const document = parseXml(decodeText(data), item.path);
+      for (const element of [document.documentElement, firstByLocalName(document, 'body')].filter(Boolean) as Element[]) {
+        const inlineMode = writingModeValue(element.getAttribute('style') ?? '');
+        if (inlineMode) inlineModes.push(inlineMode);
+      }
+
+      const links = elementsByLocalName(document, 'link');
+      for (let index = links.length - 1; index >= 0; index -= 1) {
+        const href = links[index].getAttribute('href') ?? '';
+        if (/epub-tweaker-horizontal(?:-\d+)?\.css(?:[?#].*)?$/i.test(href)) {
+          linkedOverrides.push('horizontal');
+          break;
+        }
+        if (/epub-tweaker(?:-\d+)?\.css(?:[?#].*)?$/i.test(href)) {
+          linkedOverrides.push('vertical-rl');
+          break;
+        }
+      }
+
+      for (const element of [document.documentElement, firstByLocalName(document, 'body')].filter(Boolean) as Element[]) {
+        const classes = (element.getAttribute('class') ?? '').split(/\s+/).filter(Boolean);
+        if (classes.some((name) => /^vrtl$/i.test(name))) classModes.push('vertical-rl');
+        else if (classes.some((name) => /^vltr$/i.test(name))) classModes.push('vertical-lr');
+        else if (classes.some((name) => /^hltr$/i.test(name))) classModes.push('horizontal');
+      }
+    } catch {
+      // Content parsing and validation will report malformed documents later.
+    }
   }
+
+  const appliedMode = mostCommonMode(inlineModes) ?? mostCommonMode(linkedOverrides) ?? mostCommonMode(classModes);
+  if (appliedMode) return appliedMode;
+
+  const candidates = manifest.filter((item) => item.mediaType === 'text/css' || /xhtml|html/.test(item.mediaType));
   for (const item of candidates) {
     const data = files.get(item.path);
     if (!data) continue;
-    const text = decodeText(data);
-    if (/(?:-epub-|-webkit-)?writing-mode\s*:\s*vertical-rl/i.test(text)) return 'vertical-rl';
-    if (/(?:-epub-|-webkit-)?writing-mode\s*:\s*vertical-lr/i.test(text)) return 'vertical-lr';
+    const mode = writingModeValue(decodeText(data));
+    if (mode) return mode;
   }
   return candidates.length ? 'horizontal' : 'unknown';
 }

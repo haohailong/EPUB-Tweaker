@@ -61,6 +61,36 @@ describe('complete EPUB processing', () => {
     expect(result.report.entries.some((entry) => entry.rule === 'standard-writing-mode')).toBe(true);
   });
 
+  it('uses the active root layout class when a stylesheet contains both horizontal and vertical templates', async () => {
+    const files = openArchiveSync(syntheticEpub({ language: 'zh-TW' }));
+    const chapter = decodeText(files.get('OEBPS/chapter.xhtml')!).replace('<html ', '<html class="hltr" ');
+    files.set('OEBPS/chapter.xhtml', new TextEncoder().encode(chapter));
+    files.set('OEBPS/style.css', new TextEncoder().encode(
+      'html,.hltr{writing-mode:horizontal-tb}.vrtl{writing-mode:vertical-rl}'
+    ));
+    const input = Uint8Array.from(createEpubArchive(files)).buffer;
+
+    expect((await inspectEpub(input)).writingMode).toBe('horizontal');
+    const result = await processEpub('dual-layout-template.epub', input, { ...defaults, vertical: true, japaneseMode: true });
+    const output = openArchiveSync(result.output);
+    const convertedChapter = decodeText(output.get('OEBPS/chapter.xhtml')!);
+    const override = decodeText(output.get('OEBPS/epub-tweaker.css')!);
+
+    expect(result.report.entries.some((entry) => entry.rule === 'vertical-layout')).toBe(true);
+    expect(result.report.writingModeBefore).toBe('horizontal');
+    expect(result.report.writingModeAfter).toBe('vertical-rl');
+    expect(convertedChapter).toContain('class="vrtl"');
+    expect(convertedChapter).toContain('writing-mode: vertical-rl !important');
+    expect(override).toContain('writing-mode: vertical-rl !important');
+    expect((await inspectEpub(result.output)).writingMode).toBe('vertical-rl');
+
+    const horizontal = await processEpub(result.outputName, result.output, { ...defaults, horizontal: true });
+    const horizontalChapter = decodeText(openArchiveSync(horizontal.output).get('OEBPS/chapter.xhtml')!);
+    expect(horizontalChapter).toContain('class="hltr"');
+    expect(horizontalChapter).toContain('writing-mode: horizontal-tb !important');
+    expect((await inspectEpub(horizontal.output)).writingMode).toBe('horizontal');
+  });
+
   it('repairs the EPUB 2 NCX body-anchor case', async () => {
     const result = await processEpub('ncx.epub', syntheticEpub({ version: 2, brokenBodyAnchor: true }), defaults);
     expect(result.report.entries.some((entry) => entry.rule === 'body-anchor-navigation')).toBe(true);

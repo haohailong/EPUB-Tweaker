@@ -8,7 +8,7 @@ import type { ProcessOptions, ReplacementPayload, ReportEntry, TechnicalReport, 
 const XHTML_TYPES = new Set(['application/xhtml+xml', 'text/html']);
 const XML_TYPES = new Set(['application/xhtml+xml', 'application/xml', 'text/xml', 'image/svg+xml', 'application/x-dtbncx+xml']);
 const REFERENCE_TEXT_TYPES = new Set([...XML_TYPES, 'text/html', 'text/css']);
-const VERTICAL_CSS = `html, body { writing-mode: vertical-rl; -epub-writing-mode: vertical-rl; -webkit-writing-mode: vertical-rl; }\nimg, svg { max-inline-size: 100%; block-size: auto; }\n`;
+const VERTICAL_CSS = `html, body { writing-mode: vertical-rl !important; -epub-writing-mode: vertical-rl !important; -webkit-writing-mode: vertical-rl !important; }\nimg, svg { max-inline-size: 100%; block-size: auto; }\n`;
 const HORIZONTAL_CSS = `html, body { writing-mode: horizontal-tb !important; -epub-writing-mode: horizontal-tb !important; -webkit-writing-mode: horizontal-tb !important; }\nimg, svg { max-inline-size: 100%; block-size: auto; }\n`;
 const REFLOWABLE_SPREAD_PROPERTIES = new Set([
   'page-spread-left', 'page-spread-right', 'page-spread-center',
@@ -486,6 +486,30 @@ function convertProblematicChineseRuby(book: BookModel, entries: ReportEntry[]):
   }
 }
 
+function setContentWritingMode(document: Document, mode: 'vertical-rl' | 'horizontal-tb'): void {
+  const root = document.documentElement;
+  const classes = (root.getAttribute('class') ?? '').split(/\s+/).filter(Boolean);
+  const sourceClass = mode === 'vertical-rl' ? /^hltr$/i : /^(?:vrtl|vltr)$/i;
+  const targetClass = mode === 'vertical-rl' ? 'vrtl' : 'hltr';
+  let replaced = false;
+  const updatedClasses = classes.map((name) => {
+    if (!sourceClass.test(name)) return name;
+    replaced = true;
+    return targetClass;
+  });
+  if (replaced) root.setAttribute('class', [...new Set(updatedClasses)].join(' '));
+
+  for (const element of [root, firstByLocalName(document, 'body')].filter(Boolean) as Element[]) {
+    const existingStyle = element.getAttribute('style')?.trim() ?? '';
+    const withoutWritingMode = existingStyle
+      .replace(/(?:^|;)\s*(?:-epub-|-webkit-)?writing-mode\s*:[^;]*/gi, '')
+      .replace(/^\s*;|;\s*$/g, '')
+      .trim();
+    const separator = withoutWritingMode && !withoutWritingMode.endsWith(';') ? '; ' : '';
+    element.setAttribute('style', `${withoutWritingMode}${separator}writing-mode: ${mode} !important; -epub-writing-mode: ${mode} !important; -webkit-writing-mode: ${mode} !important;`);
+  }
+}
+
 function addVerticalStyles(book: BookModel, entries: ReportEntry[]): void {
   const packageDirectory = dirname(book.packagePath);
   let cssPath = packageDirectory ? `${packageDirectory}/epub-tweaker.css` : 'epub-tweaker.css';
@@ -517,14 +541,16 @@ function addVerticalStyles(book: BookModel, entries: ReportEntry[]): void {
     const document = parseXml(decodeText(data), item.path);
     const href = relativePath(item.path, cssPath);
     const exists = elementsByLocalName(document, 'link').some((link) => link.getAttribute('href') === href);
-    if (exists) continue;
     const head = firstByLocalName(document, 'head');
     if (!head) continue;
-    const link = document.createElementNS(document.documentElement.namespaceURI, 'link');
-    link.setAttribute('rel', 'stylesheet');
-    link.setAttribute('type', 'text/css');
-    link.setAttribute('href', href);
-    head.appendChild(link);
+    if (!exists) {
+      const link = document.createElementNS(document.documentElement.namespaceURI, 'link');
+      link.setAttribute('rel', 'stylesheet');
+      link.setAttribute('type', 'text/css');
+      link.setAttribute('href', href);
+      head.appendChild(link);
+    }
+    setContentWritingMode(document, 'vertical-rl');
     book.files.set(item.path, encodeText(serializeXml(document)));
     linked += 1;
   }
@@ -563,19 +589,16 @@ function addHorizontalStyles(book: BookModel, entries: ReportEntry[]): void {
     const document = parseXml(decodeText(data), item.path);
     const href = relativePath(item.path, cssPath);
     const exists = elementsByLocalName(document, 'link').some((link) => link.getAttribute('href') === href);
-    if (exists) continue;
     const head = firstByLocalName(document, 'head');
     if (!head) continue;
-    const link = document.createElementNS(document.documentElement.namespaceURI, 'link');
-    link.setAttribute('rel', 'stylesheet');
-    link.setAttribute('type', 'text/css');
-    link.setAttribute('href', href);
-    head.appendChild(link);
-    for (const element of [document.documentElement, firstByLocalName(document, 'body')].filter(Boolean) as Element[]) {
-      const existingStyle = element.getAttribute('style')?.trim() ?? '';
-      const separator = existingStyle && !existingStyle.endsWith(';') ? '; ' : '';
-      element.setAttribute('style', `${existingStyle}${separator}writing-mode: horizontal-tb !important; -epub-writing-mode: horizontal-tb !important; -webkit-writing-mode: horizontal-tb !important;`);
+    if (!exists) {
+      const link = document.createElementNS(document.documentElement.namespaceURI, 'link');
+      link.setAttribute('rel', 'stylesheet');
+      link.setAttribute('type', 'text/css');
+      link.setAttribute('href', href);
+      head.appendChild(link);
     }
+    setContentWritingMode(document, 'horizontal-tb');
     book.files.set(item.path, encodeText(serializeXml(document)));
     linked += 1;
   }
