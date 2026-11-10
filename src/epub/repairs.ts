@@ -10,6 +10,13 @@ const XML_TYPES = new Set(['application/xhtml+xml', 'application/xml', 'text/xml
 const REFERENCE_TEXT_TYPES = new Set([...XML_TYPES, 'text/html', 'text/css']);
 const VERTICAL_CSS = `html, body { writing-mode: vertical-rl !important; -epub-writing-mode: vertical-rl !important; -webkit-writing-mode: vertical-rl !important; }\nimg, svg { max-inline-size: 100%; block-size: auto; }\n`;
 const HORIZONTAL_CSS = `html, body { writing-mode: horizontal-tb !important; -epub-writing-mode: horizontal-tb !important; -webkit-writing-mode: horizontal-tb !important; }\nimg, svg { max-inline-size: 100%; block-size: auto; }\n`;
+const HORIZONTAL_PUNCTUATION = new Map<string, string>([
+  ['︐', '，'], ['︑', '、'], ['︒', '。'], ['︓', '：'], ['︔', '；'], ['︕', '！'], ['︖', '？'],
+  ['︗', '〖'], ['︘', '〗'], ['︙', '…'], ['︰', '：'], ['︱', '—'], ['︲', '–'],
+  ['︵', '（'], ['︶', '）'], ['︷', '｛'], ['︸', '｝'], ['︹', '〔'], ['︺', '〕'],
+  ['︻', '【'], ['︼', '】'], ['︽', '《'], ['︾', '》'], ['︿', '〈'], ['﹀', '〉'],
+  ['﹁', '「'], ['﹂', '」'], ['﹃', '『'], ['﹄', '』'], ['﹇', '［'], ['﹈', '］']
+]);
 const REFLOWABLE_SPREAD_PROPERTIES = new Set([
   'page-spread-left', 'page-spread-right', 'page-spread-center',
   'rendition:page-spread-left', 'rendition:page-spread-right', 'rendition:page-spread-center',
@@ -486,6 +493,133 @@ function convertProblematicChineseRuby(book: BookModel, entries: ReportEntry[]):
   }
 }
 
+const ROTATED_SIDE = new Map([
+  ['top', 'left'],
+  ['right', 'top'],
+  ['bottom', 'right'],
+  ['left', 'bottom']
+]);
+
+function rotateBoxValue(value: csstree.CssNode): csstree.Value | undefined {
+  if (value.type !== 'Value') return undefined;
+  const values: string[] = [];
+  value.children.forEach((child) => values.push(csstree.generate(child)));
+  if (values.length < 1 || values.length > 4) return undefined;
+  const [top, right = top, bottom = top, left = right] = values;
+  const rotated = csstree.parse(`${right} ${bottom} ${left} ${top}`, { context: 'value' });
+  return rotated.type === 'Value' ? rotated : undefined;
+}
+
+function rotatePhysicalProperty(property: string): string | undefined {
+  const boxSide = property.match(/^(margin|padding)-(top|right|bottom|left)$/i);
+  if (boxSide) return `${boxSide[1]}-${ROTATED_SIDE.get(boxSide[2].toLowerCase())}`;
+  const borderSide = property.match(/^border-(top|right|bottom|left)(-.+)?$/i);
+  if (borderSide) return `border-${ROTATED_SIDE.get(borderSide[1].toLowerCase())}${borderSide[2] ?? ''}`;
+  return undefined;
+}
+
+function horizontalContextTokens(ast: csstree.CssNode): Set<string> {
+  const tokens = new Set<string>();
+  csstree.walk(ast, {
+    visit: 'Rule',
+    enter(node) {
+      if (node.type !== 'Rule' || node.block.type !== 'Block') return;
+      let horizontal = false;
+      node.block.children.forEach((child) => {
+        if (child.type !== 'Declaration' || !/(?:^|-)writing-mode$/i.test(child.property)) return;
+        if (/^horizontal-tb$/i.test(csstree.generate(child.value))) horizontal = true;
+      });
+      if (!horizontal) return;
+      const selector = csstree.generate(node.prelude);
+      for (const match of selector.matchAll(/[.#][-\w]+/g)) tokens.add(match[0]);
+    }
+  });
+  return tokens;
+}
+
+function convertVerticalCssForHorizontal(book: BookModel, entries: ReportEntry[]): void {
+  let converted = 0;
+  const paths: string[] = [];
+  for (const item of book.manifest.filter((entry) => entry.mediaType === 'text/css')) {
+    const data = book.files.get(item.path);
+    if (!data) continue;
+    let ast: csstree.CssNode;
+    try { ast = csstree.parse(decodeText(data)); } catch { continue; }
+    const horizontalTokens = horizontalContextTokens(ast);
+    let fileConverted = 0;
+    csstree.walk(ast, {
+      visit: 'Rule',
+      enter(node) {
+        if (node.type !== 'Rule' || node.block.type !== 'Block') return;
+        const selector = csstree.generate(node.prelude);
+        const selectorTokens = new Set([...selector.matchAll(/[.#][-\w]+/g)].map((match) => match[0]));
+        if ([...selectorTokens].some((token) => horizontalTokens.has(token))) return;
+        node.block.children.forEach((child) => {
+          if (child.type !== 'Declaration') return;
+          const property = child.property.toLowerCase();
+          const rotatedProperty = rotatePhysicalProperty(property);
+          if (rotatedProperty) {
+            child.property = rotatedProperty;
+            fileConverted += 1;
+            return;
+          }
+          if (['margin', 'padding', 'border-color', 'border-style', 'border-width'].includes(property)) {
+            const rotatedValue = rotateBoxValue(child.value);
+            if (rotatedValue) {
+              child.value = rotatedValue;
+              fileConverted += 1;
+            }
+          }
+        });
+      }
+    });
+    if (!fileConverted) continue;
+    book.files.set(item.path, encodeText(`${csstree.generate(ast)}\n`));
+    converted += fileConverted;
+    paths.push(item.path);
+  }
+  if (converted) report(entries, {
+    rule: 'horizontal-physical-layout', kind: 'tweak', path: paths.join(', '),
+    message: `Rotated ${converted} vertical physical spacing and border declaration${converted === 1 ? '' : 's'} for horizontal layout.`, count: converted
+  });
+}
+
+function convertVerticalPunctuationForHorizontal(book: BookModel, entries: ReportEntry[]): void {
+  let converted = 0;
+  const paths: string[] = [];
+  const visit = (node: Node): void => {
+    if (node.nodeType === 1 && /^(?:script|style)$/i.test((node as Element).localName || node.nodeName)) return;
+    if (node.nodeType === 3 && node.nodeValue) {
+      const replaced = node.nodeValue.replace(/[︐-︙︰-︲︵-﹀﹁-﹄﹇﹈]/gu, (character) => {
+        const replacement = HORIZONTAL_PUNCTUATION.get(character);
+        if (!replacement) return character;
+        converted += 1;
+        return replacement;
+      });
+      (node as Text).data = replaced;
+      return;
+    }
+    const children = node.childNodes;
+    if (!children) return;
+    for (let index = 0; index < children.length; index += 1) visit(children.item(index)!);
+  };
+
+  for (const item of book.manifest.filter((entry) => XHTML_TYPES.has(entry.mediaType))) {
+    const data = book.files.get(item.path);
+    if (!data) continue;
+    const document = parseXml(decodeText(data), item.path);
+    const before = converted;
+    visit(document.documentElement);
+    if (converted === before) continue;
+    book.files.set(item.path, encodeText(serializeXml(document)));
+    paths.push(item.path);
+  }
+  if (converted) report(entries, {
+    rule: 'horizontal-punctuation', kind: 'visible', path: paths.join(', '),
+    message: `Converted ${converted} vertical presentation punctuation character${converted === 1 ? '' : 's'} for horizontal text.`, count: converted
+  });
+}
+
 function setContentWritingMode(document: Document, mode: 'vertical-rl' | 'horizontal-tb'): void {
   const root = document.documentElement;
   const classes = (root.getAttribute('class') ?? '').split(/\s+/).filter(Boolean);
@@ -559,6 +693,8 @@ function addVerticalStyles(book: BookModel, entries: ReportEntry[]): void {
 }
 
 function addHorizontalStyles(book: BookModel, entries: ReportEntry[]): void {
+  convertVerticalCssForHorizontal(book, entries);
+  convertVerticalPunctuationForHorizontal(book, entries);
   const packageDirectory = dirname(book.packagePath);
   let cssPath = packageDirectory ? `${packageDirectory}/epub-tweaker-horizontal.css` : 'epub-tweaker-horizontal.css';
   let suffix = 2;

@@ -180,6 +180,33 @@ describe('complete EPUB processing', () => {
     }
   });
 
+  it('normalizes vertical punctuation and rotates physical spacing when converting to horizontal', async () => {
+    const files = openArchiveSync(syntheticEpub({ vertical: true, progression: 'rtl', language: 'zh-TW' }));
+    const chapter = decodeText(files.get('OEBPS/chapter.xhtml')!).replace(
+      'Hello',
+      '<p>還不是『財多身弱﹄，她道︰「是的。」</p><div class="hbox"><p>Horizontal inset</p></div>'
+    );
+    files.set('OEBPS/chapter.xhtml', new TextEncoder().encode(chapter));
+    files.set('OEBPS/style.css', new TextEncoder().encode(
+      'html{writing-mode:vertical-rl}p{margin:0 1em 0 2em;border-left:1px solid}.hbox{writing-mode:horizontal-tb}.hbox p{margin-left:3em;border-left:2px dotted}'
+    ));
+
+    const result = await processEpub('vertical-punctuation.epub', Uint8Array.from(createEpubArchive(files)).buffer, { ...defaults, horizontal: true });
+    const output = openArchiveSync(result.output);
+    const convertedChapter = decodeText(output.get('OEBPS/chapter.xhtml')!);
+    const convertedCss = decodeText(output.get('OEBPS/style.css')!);
+
+    expect(convertedChapter).toContain('還不是『財多身弱』，她道：「是的。」');
+    expect(convertedChapter).not.toContain('﹄');
+    expect(convertedChapter).not.toContain('︰');
+    expect(convertedCss).toContain('p{margin:1em 0 2em 0;border-bottom:1px solid}');
+    expect(convertedCss).toContain('.hbox p{margin-left:3em;border-left:2px dotted}');
+    expect(result.report.entries).toEqual(expect.arrayContaining([
+      expect.objectContaining({ rule: 'horizontal-physical-layout' }),
+      expect.objectContaining({ rule: 'horizontal-punctuation' })
+    ]));
+  });
+
   it('Japanese mode changes language independently of layout', async () => {
     const result = await processEpub('book.epub', syntheticEpub({ language: 'zh-Hant' }), { ...defaults, japaneseMode: true });
     expect(result.info.language).toBe('ja');
