@@ -86,6 +86,8 @@ export interface ProcessOptions {
   japaneseMode: boolean;
   progression: Progression;
   outputName?: string;
+  outputLanguage?: ResolvedLanguage;
+  coverReplacement?: string;
   imageMappings: Record<string, string>;
 }
 

@@ -1,4 +1,5 @@
 import * as csstree from 'css-tree';
+import { replaceCover } from './cover';
 import { decodeText, encodeText } from './archive';
 import type { BookModel } from './model';
 import { dirname, relativePath, resolvePath, splitReference } from './path';
@@ -805,6 +806,11 @@ export function applyRepairs(
   repairSvg(book, entries);
   convertProblematicChineseRuby(book, entries);
   applyImageReplacements(book, entries, replacements, options.imageMappings);
+  if (options.coverReplacement) {
+    const cover = replacements.find((replacement) => replacement.name === options.coverReplacement);
+    if (!cover) throw new Error('The selected cover image is missing.');
+    replaceCover(book, cover, entries);
+  }
   if (options.japaneseMode) applyJapaneseMode(book, entries);
   const canConvertHorizontal = options.horizontal && book.layout !== 'fixed';
   const canConvertVertical = options.vertical && !options.horizontal && book.layout !== 'fixed';

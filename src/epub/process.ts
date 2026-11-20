@@ -4,21 +4,13 @@ import { parseBook } from './parser';
 import { applyRepairs } from './repairs';
 import { toBookInfo } from './model';
 import { validateOutput } from './validator';
+import { outputFilename } from './outputName';
 import type { BookInfo, ImageMatch, ProcessOptions, ProcessResult, ReplacementPayload, WorkerProgress } from '../types';
 
 export type ProgressCallback = (progress: WorkerProgress) => void;
 
 function progress(callback: ProgressCallback | undefined, phase: WorkerProgress['phase'], percent: number): void {
   callback?.({ phase, percent });
-}
-
-function outputFilename(input: string, requested?: string): string {
-  if (requested?.trim()) {
-    const safe = requested.trim().replace(/[\\/:*?"<>|\0]/g, '-');
-    return safe.toLowerCase().endsWith('.epub') ? safe : `${safe}.epub`;
-  }
-  const base = input.replace(/\.epub$/i, '').replace(/(?:(?:-fixed|-tweaked))+$/i, '');
-  return `${base}-tweaked.epub`;
 }
 
 export async function inspectEpub(buffer: ArrayBuffer, callback?: ProgressCallback): Promise<BookInfo> {
@@ -75,7 +67,7 @@ export async function processEpub(
   return {
     info: toBookInfo(book),
     output,
-    outputName: outputFilename(filename, options.outputName),
+    outputName: outputFilename(filename, toBookInfo(book), options),
     report,
     changed: report.entries.some((entry) => entry.kind !== 'warning')
   };

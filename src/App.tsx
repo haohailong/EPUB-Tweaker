@@ -3,6 +3,7 @@ import { strToU8, zipSync, type Zippable } from 'fflate';
 import { resolveLanguage, translator, type TranslationKey } from './i18n';
 import { desiredBookState, hasCurrentResult, optionsChangedSinceAttempt, optionsChangedWithoutEffect, optionsEqual, processingOptions, shouldProcess, snapshotOptions, type QueueItemState } from './queueState';
 import { inspectFile, matchFileImages, processFile } from './workerClient';
+import { outputFilename } from './epub/outputName';
 import type { BookInfo, FileStatus, ImageMatch, Language, ProcessOptions, ProcessResult, Progression, ReportEntry, WorkerProgress } from './types';
 
 interface AppProps {
@@ -19,6 +20,7 @@ interface FileItem {
   error?: { code?: string; message: string; path?: string };
   options: ProcessOptions;
   replacements: File[];
+  cover?: File;
   matches: ImageMatch[];
   result?: ProcessResult;
   resultOptions?: ProcessOptions;
@@ -45,10 +47,11 @@ const ruleKeys: Record<string, TranslationKey> = {
   'pseudo-box-shadow': 'ruleCss', 'svg-title': 'ruleSvg', 'chinese-ruby': 'ruleRuby', 'vertical-layout': 'ruleVertical', 'horizontal-layout': 'ruleHorizontal',
   'kindle-language-metadata': 'ruleKindleLanguage', 'reflowable-svg-page': 'ruleReflowableSvgPage', 'reflowable-page-spread': 'ruleReflowableSpread', 'standard-writing-mode': 'ruleStandardWritingMode', 'kindle-vertical-chinese': 'ruleKindleVerticalChinese',
   'japanese-mode': 'ruleJapanese', 'image-replacement': 'ruleImage', 'utf8-normalization': 'ruleUtf8', 'page-progression': 'ruleProgression', 'kindle-writing-mode': 'ruleWritingMode',
-  'vertical-fixed-layout': 'ruleVerticalSkipped'
+  'vertical-fixed-layout': 'ruleVerticalSkipped', 'cover-replacement': 'cover',
 };
 
 const errorKeys: Record<string, TranslationKey> = {
+  INVALID_COVER_IMAGE: 'coverInvalid',
   INVALID_EPUB_ARCHIVE: 'errorInvalid', EPUB_CONTAINER_MISSING: 'errorContainer', PACKAGE_DOCUMENT_MISSING: 'errorPackage',
   MANIFEST_RESOURCE_MISSING: 'errorManifest', SPINE_RESOURCE_MISSING: 'errorSpine', DRM_PROTECTED: 'errorDrm',
   UNSUPPORTED_ENCRYPTION: 'errorDrm', XML_PARSE_FAILED: 'errorXml', ZIP_PATH_TRAVERSAL: 'errorUnsafe', ZIP_BOMB_LIMIT: 'errorTooLarge', POST_VALIDATION_FAILED: 'errorValidation'
@@ -161,10 +164,10 @@ export default function App({ onRegisterUpdate, updateApp }: AppProps) {
 
   const processOne = async (item: FileItem) => {
     const attemptedOptions = snapshotOptions(item.options);
-    const effectiveOptions = processingOptions(queueState(item));
+    const effectiveOptions = { ...processingOptions(queueState(item)), outputLanguage: language };
     updateItem(item.id, { status: 'processing', error: undefined });
     try {
-      const result = await processFile(item.file, effectiveOptions, item.replacements, (progress) => updateItem(item.id, { progress }));
+      const result = await processFile(item.file, effectiveOptions, item.cover ? [...item.replacements, item.cover] : item.replacements, (progress) => updateItem(item.id, { progress }));
       updateItem(item.id, {
         result, resultOptions: attemptedOptions, lastAttemptOptions: attemptedOptions, downloaded: false,
         status: result.changed ? 'repaired' : 'unchanged', progress: undefined
@@ -314,6 +317,11 @@ export default function App({ onRegisterUpdate, updateApp }: AppProps) {
                 onProcess={() => void processOne(item)}
                 onOptions={(options) => updateItem(item.id, { options })}
                 onReplacements={(files) => void selectReplacements(item, files)}
+                onCover={(file) => {
+                  if (file && !/\.(?:jpe?g|png)$/i.test(file.name)) { setNotice(t('coverInvalid')); return; }
+                  const cover = file ? new File([file], `${crypto.randomUUID()}-${file.name}`, { type: file.type }) : undefined;
+                  updateItem(item.id, (current) => ({ cover, options: { ...current.options, coverReplacement: cover?.name } }));
+                }}
                 onToggleMatch={(match, checked) => toggleMatch(item, match, checked)}
                 onDownload={() => { if (!item.result) return; triggerDownload(item.result.output, item.result.outputName, 'application/epub+zip'); updateItem(item.id, { downloaded: true }); }}
                 onCopy={async () => { await navigator.clipboard.writeText(logText(item)); updateItem(item.id, { copied: true }); setTimeout(() => updateItem(item.id, { copied: false }), 1500); }} />
@@ -362,9 +370,10 @@ interface CardProps {
   item: FileItem; index: number; language: string; t: ReturnType<typeof translator>;
   onRemove: () => void; onProcess: () => void; onOptions: (options: ProcessOptions) => void;
   onReplacements: (files: FileList | null) => void; onToggleMatch: (match: ImageMatch, checked: boolean) => void; onDownload: () => void; onCopy: () => void;
+  onCover: (file?: File) => void;
 }
 
-function FileCard({ item, index, language, t, onRemove, onProcess, onOptions, onReplacements, onToggleMatch, onDownload, onCopy }: CardProps) {
+function FileCard({ item, index, language, t, onRemove, onProcess, onOptions, onReplacements, onCover, onToggleMatch, onDownload, onCopy }: CardProps) {
   const info = item.info;
   const state = queueState(item);
   const currentResult = hasCurrentResult(state);
@@ -402,10 +411,11 @@ function FileCard({ item, index, language, t, onRemove, onProcess, onOptions, on
     {!busy && optionsChanged && <div className="queue-note stale-note"><strong>{t('statusOptionsChanged')}</strong><p>{t('optionsChangedHelp')}{item.result ? ` ${t('previousResultAvailable')}` : ''}</p></div>}
     {!busy && resultUnaffected && <div className="queue-note"><strong>{t('statusResultUnaffected')}</strong><p>{t('resultUnaffectedHelp')}</p></div>}
     {failedWithCurrentOptions && <div className="queue-note"><p>{t('sameOptionsNoReprocess')}{item.result ? ` ${t('previousResultAvailable')}` : ''}</p></div>}
-    {info && !item.result && <section className="card-options" aria-label={t('resourcesAndOutput')}>
+    {info && <section className="card-options" aria-label={t('resourcesAndOutput')}>
+      <fieldset disabled={busy} className="cover-options"><legend>{t('cover')}</legend><p className="help-text">{t('coverHelp')}</p><label className="file-button"><span>{t('chooseCover')}</span><input type="file" accept="image/jpeg,image/png" onChange={(event) => { const file = event.target.files?.[0]; if (file) onCover(file); event.target.value = ''; }} /></label>{item.cover && <><CoverPreview file={item.cover} label={t('cover')} /><button className="secondary" onClick={() => onCover()}>{t('resetCover')}</button></>}</fieldset>
       <div className="advanced-grid card-options-grid">
-        <fieldset><legend>{t('resources')}</legend><p className="field-heading">{t('replaceImages')}</p><p className="help-text">{t('imagesHelp')}</p><label className="file-button"><span>{t('chooseImages')}</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple onChange={(event) => onReplacements(event.target.files)} /></label></fieldset>
-        <fieldset><legend>{t('output')}</legend><label className="field-label">{t('outputName')}<input type="text" value={item.options.outputName ?? ''} onChange={(event) => onOptions({ ...item.options, outputName: event.target.value })} placeholder={item.file.name.replace(/(?:(?:-fixed|-tweaked))*\.epub$/i, '-tweaked.epub')} /></label><p className="help-text">{t('outputHelp')}</p></fieldset>
+        <fieldset disabled={busy}><legend>{t('resources')}</legend><p className="field-heading">{t('replaceImages')}</p><p className="help-text">{t('imagesHelp')}</p><label className="file-button"><span>{t('chooseImages')}</span><input type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple onChange={(event) => onReplacements(event.target.files)} /></label></fieldset>
+        <fieldset disabled={busy}><legend>{t('output')}</legend><label className="field-label">{t('outputName')}<input type="text" value={item.options.outputName ?? ''} onChange={(event) => onOptions({ ...item.options, outputName: event.target.value })} placeholder={outputFilename(item.file.name, { ...info, ...desired }, { ...item.options, outputName: undefined, outputLanguage: language as Exclude<Language, 'system'> })} /></label><p className="help-text">{t('outputHelp')}</p></fieldset>
       </div>
       {item.matches.length > 0 && <div className="matches"><h4>{t('imageMatches')}</h4>{item.matches.map((match) => {
         const selected = Boolean(item.options.imageMappings[match.replacementName]);
@@ -415,6 +425,12 @@ function FileCard({ item, index, language, t, onRemove, onProcess, onOptions, on
     {info && (canProcess || Boolean(item.result && !currentResult)) && <div className="card-actions queue-actions">{canProcess && <button className="primary" onClick={onProcess}>{t(item.lastAttemptOptions || item.result ? 'reprocess' : 'process')}</button>}{item.result && !currentResult && <button className="secondary" onClick={onDownload}>{t('downloadPrevious')}</button>}</div>}
     {item.result && <Report item={item} previous={!currentResult} t={t} group={group} onDownload={onDownload} onCopy={onCopy} />}
   </article>;
+}
+
+function CoverPreview({ file, label }: { file: File; label: string }) {
+  const [url, setUrl] = useState('');
+  useEffect(() => { const next = URL.createObjectURL(file); setUrl(next); return () => URL.revokeObjectURL(next); }, [file]);
+  return url ? <img src={url} alt={label} style={{ display: 'block', maxWidth: '140px', maxHeight: '190px', objectFit: 'contain', margin: '1rem 0' }} /> : null;
 }
 
 function Report({ item, previous, t, group, onDownload, onCopy }: { item: FileItem; previous: boolean; t: ReturnType<typeof translator>; group: (kind: ReportEntry['kind']) => ReportEntry[]; onDownload: () => void; onCopy: () => void }) {

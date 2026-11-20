@@ -42,9 +42,9 @@ It is especially useful for:
 2. Choose the layout, Japanese Mode, and page-progression options. The defaults preserve the book’s existing layout and valid progression.
 3. Drag one or more `.epub` files onto the page, or select **Choose Files**.
 4. Review each book’s detected title, EPUB version, language, layout, and page direction, including the expected state after processing.
-5. If needed, choose local replacement images or change the output filename on the book card.
+5. If needed, choose a JPG/PNG cover, select local replacement images, or change the output filename on the book card. Preview a selected cover and process the book to apply it. These controls remain available after processing.
 6. Select **Process EPUB**, or use **Process All** for a batch.
-7. Review the repair report and download the resulting `-tweaked.epub` file. The source file is never overwritten.
+7. Review the repair report and download the EPUB with a descriptive style suffix, such as `Book-Horizontal-LTR-JA.epub`. The source file is never overwritten.
 
 Keep the page open while a large book is being processed. All work happens on the device.
 
@@ -98,7 +98,11 @@ Language alone is never treated as proof of page direction.
 
 ## Output and privacy
 
-The default output name is `Original Name-tweaked.epub`. Existing `-fixed` and `-tweaked` suffixes are normalized so repeated processing does not stack suffixes.
+Default names describe the actual output: `Book-Horizontal-LTR-JA.epub` or `Book-Vertical-RTL-ZH-TW.epub`. The suffix records layout, page direction, and publication language (not the interface language). Chinese interfaces use `横排` / `橫排` and `直排`; English uses `Horizontal` / `Vertical`. Fixed-layout and unknown-layout books are labeled accordingly. `AUTO` means direction is unknown and `UND` means language is unset. Existing generated style suffixes and legacy `-fixed` / `-tweaked` suffixes are replaced rather than stacked. Custom filenames take priority.
+
+### Add or replace a cover
+
+Use **Cover image → Choose cover (JPG / PNG)** on a book card. The selected picture is previewed locally. Process the EPUB to apply it, or choose **Keep original cover** to cancel the selection. Existing cover metadata and image references are updated; if there is no cover page, one is added at the start of the reading order. JPG/PNG uploads are stored with their correct media type; cover selection does not use automatic image matching. After a successful conversion, choosing a different cover makes the book pending again; the previous result stays downloadable until the new one succeeds. All images remain on your device.
 
 A browser PWA cannot normally write beside the source file without explicit file-system permission, so downloads go to the browser’s configured download folder or save prompt. The original EPUB is never overwritten.
 

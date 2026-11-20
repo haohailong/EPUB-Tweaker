@@ -26,12 +26,14 @@ function optionsSignature(options: ProcessOptions): string {
     japaneseMode: options.japaneseMode,
     progression: options.progression,
     outputName: options.outputName?.trim() ?? '',
+    coverReplacement: options.coverReplacement ?? '',
     imageMappings: Object.entries(options.imageMappings).sort(([left], [right]) => left.localeCompare(right))
   });
 }
 
 function auxiliaryOptionsSignature(options: ProcessOptions): string {
   return JSON.stringify({
+    coverReplacement: options.coverReplacement ?? '',
     outputName: options.outputName?.trim() ?? '',
     imageMappings: Object.entries(options.imageMappings).sort(([left], [right]) => left.localeCompare(right))
   });

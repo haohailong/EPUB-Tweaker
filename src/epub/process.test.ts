@@ -267,6 +267,6 @@ describe('complete EPUB processing', () => {
     const second = await processEpub(first.outputName, first.output, defaults);
     expect(second.report.entries).toHaveLength(0);
     expect(new Uint8Array(second.output)).toEqual(new Uint8Array(first.output));
-    expect(second.outputName).toBe('book-tweaked.epub');
+    expect(second.outputName).toBe('book-横排-LTR-EN.epub');
   });
 });

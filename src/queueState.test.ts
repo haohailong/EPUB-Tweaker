@@ -22,6 +22,14 @@ function state(update: Partial<QueueItemState> = {}): QueueItemState {
 }
 
 describe('file queue processing state', () => {
+  it('reprocesses for a changed cover and restores the matching previous result when cancelled', () => {
+    const completed = state({ status: 'repaired', result: result(book()), resultOptions: snapshotOptions(base), lastAttemptOptions: snapshotOptions(base) });
+    const withCover = { ...completed, options: { ...base, coverReplacement: 'unique-cover.png' } };
+    expect(hasCurrentResult(withCover)).toBe(false);
+    expect(shouldProcess(withCover)).toBe(true);
+    expect(processingOptions(withCover).coverReplacement).toBe('unique-cover.png');
+    expect(hasCurrentResult({ ...withCover, options: snapshotOptions(base) })).toBe(true);
+  });
   it('processes a newly inspected file once even when the layout is preserved', () => {
     expect(shouldProcess(state())).toBe(true);
   });
